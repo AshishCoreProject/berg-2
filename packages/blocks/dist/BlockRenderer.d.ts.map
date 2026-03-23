@@ -1,0 +1,1 @@
+{"version":3,"file":"BlockRenderer.d.ts","sourceRoot":"","sources":["../src/BlockRenderer.tsx"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,cAAc,CAAC;AAM1C,UAAU,KAAK;IACb,KAAK,EAAE,KAAK,CAAC;IACb,UAAU,CAAC,EAAE,MAAM,CAAC;IACpB,WAAW,CAAC,EAAE,OAAO,CAAC;CACvB;AA2ED,wBAAgB,aAAa,CAAC,EAAE,KAAK,EAAE,UAAU,EAAE,WAAW,EAAE,EAAE,KAAK,gIAgjBtE"}
