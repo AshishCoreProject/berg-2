@@ -2,7 +2,7 @@
  * @berg/core – Shared types for storage, config, and store data.
  * Single source of truth for runtime data structures used across builder and storefront.
  */
-import type { PagesStore } from '@berg/schema';
+import type { FooterLinksConfig, PagesStore } from '@berg/schema';
 /** Style overrides for header, footer, or default buttons */
 export interface StyleOverrides {
     backgroundColor?: string;
@@ -23,6 +23,11 @@ export interface StoreData extends PagesStore {
     headerStyle?: StyleOverrides;
     footerStyle?: StyleOverrides;
     buttonStyle?: StyleOverrides;
+    /**
+     * Footer links configuration (multi-column + bottom row).
+     * This is footer-only UI/config and does not affect block data.
+     */
+    footerLinks?: FooterLinksConfig;
     /** Page IDs to hide from header/footer navigation */
     hiddenFromHeader?: string[];
 }

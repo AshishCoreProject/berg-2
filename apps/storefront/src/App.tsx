@@ -64,6 +64,7 @@ export default function App() {
         useDemoData: payload.useDemoData ?? existing.useDemoData,
         headerStyle: payload.headerStyle ?? existing.headerStyle,
         footerStyle: payload.footerStyle ?? existing.footerStyle,
+        footerLinks: payload.footerLinks ?? existing.footerLinks,
         buttonStyle: payload.buttonStyle ?? existing.buttonStyle,
         hiddenFromHeader: payload.hiddenFromHeader ?? existing.hiddenFromHeader,
       });
@@ -173,6 +174,7 @@ export default function App() {
             onNavigate={navigate}
             footerStyle={store.footerStyle}
             hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
           />
         </div>
       </>
@@ -205,6 +207,7 @@ export default function App() {
             onNavigate={navigate}
             footerStyle={store.footerStyle}
             hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
           />
         </div>
       </>
@@ -238,6 +241,7 @@ export default function App() {
           onNavigate={navigate}
           footerStyle={store.footerStyle}
           hiddenFromHeader={store.hiddenFromHeader}
+          footerLinks={store.footerLinks}
         />
       </div>
     </>

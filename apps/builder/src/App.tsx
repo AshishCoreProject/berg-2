@@ -131,6 +131,13 @@ export default function App() {
     },
     [persistStore]
   );
+
+  const setFooterLinks = useCallback(
+    (footerLinks: StoreData['footerLinks']) => {
+      persistStore((prev) => ({ ...prev, footerLinks: footerLinks ?? undefined }));
+    },
+    [persistStore]
+  );
   const setButtonStyle = useCallback(
     (buttonStyle: StoreData['buttonStyle']) => {
       persistStore((prev) => ({ ...prev, buttonStyle: buttonStyle && Object.keys(buttonStyle).length ? buttonStyle : undefined }));
@@ -548,6 +555,7 @@ export default function App() {
       useDemoData: store.useDemoData,
       headerStyle: store.headerStyle,
       footerStyle: store.footerStyle,
+      footerLinks: store.footerLinks,
       buttonStyle: store.buttonStyle,
       hiddenFromHeader: store.hiddenFromHeader,
       openSlug: currentPage?.slug,
@@ -667,6 +675,7 @@ export default function App() {
               headerStyle={store.headerStyle ?? {}}
               onHeaderStyleChange={setHeaderStyle}
               onToggleShowInHeader={setHiddenFromHeader}
+              viewport={viewport}
             />
             <div className="canvas">
               {!currentPage ? (
@@ -729,8 +738,11 @@ export default function App() {
               pages={pages}
               homeSlug={store.homeSlug}
               hiddenFromHeader={store.hiddenFromHeader}
+              footerLinks={store.footerLinks}
               footerStyle={store.footerStyle ?? {}}
               onFooterStyleChange={setFooterStyle}
+              onFooterLinksChange={setFooterLinks}
+              viewport={viewport}
             />
             </div>
           </div>

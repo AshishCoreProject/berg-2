@@ -39,6 +39,7 @@ export function parseHashPayload(hash: string): HashPayload | null {
       openSlug: data.openSlug as string | undefined,
       headerStyle: data.headerStyle as HashPayload['headerStyle'],
       footerStyle: data.footerStyle as HashPayload['footerStyle'],
+      footerLinks: data.footerLinks as HashPayload['footerLinks'],
       buttonStyle: data.buttonStyle as HashPayload['buttonStyle'],
       hiddenFromHeader: Array.isArray(data.hiddenFromHeader) ? data.hiddenFromHeader : undefined,
     };

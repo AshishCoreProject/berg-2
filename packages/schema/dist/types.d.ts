@@ -51,10 +51,45 @@ export interface SiteSettings {
     /** Backend API base URL (e.g. 'https://api.example.com' or 'http://localhost:3000/api'). */
     apiBaseUrl?: string;
 }
+/** Footer link item (label + URL) */
+export interface FooterLinkItem {
+    id: string;
+    label: string;
+    url: string;
+    /**
+     * If true, open in a new tab with `rel="noopener noreferrer"`.
+     * For internal links, we normally let the SPA handle navigation.
+     */
+    openInNewTab?: boolean;
+}
+/** A column of footer links under a heading (e.g. "Shop"). */
+export interface FooterLinkColumn {
+    id: string;
+    title: string;
+    /** Optional color for the column heading (e.g. '#ffffff'). */
+    titleColor?: string;
+    /** Optional background color for the column heading (e.g. '#111827'). */
+    titleBackgroundColor?: string;
+    links: FooterLinkItem[];
+}
+/** Footer brand content on the left side. */
+export interface FooterBrand {
+    subtitle?: string;
+    cta?: FooterLinkItem;
+}
+/** Config for the footer's multi-column link layout. */
+export interface FooterLinksConfig {
+    brand?: FooterBrand;
+    columns: FooterLinkColumn[];
+    /** Links rendered in the bottom right row (e.g. "Privacy", "Terms"). */
+    bottomLinks: FooterLinkItem[];
+}
 /** Generate a simple unique id for new blocks. */
 export declare function createBlockId(): string;
 /** Generate a unique page id. */
 export declare function createPageId(): string;
+/** Generate a unique id for footer link items. */
+export declare function createFooterLinkId(): string;
 /** Slugify a string for URL-safe slug (lowercase, hyphens, no special chars). */
 export declare function slugify(text: string): string;
 /** Ensure slug is unique among existing slugs; append -2, -3, etc. if needed. */

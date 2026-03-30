@@ -11,6 +11,12 @@ function isStoredPage(p) {
         'slug' in p &&
         'document' in p);
 }
+function isFooterLinksConfig(v) {
+    if (typeof v !== 'object' || v === null)
+        return false;
+    const o = v;
+    return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
+}
 function parseStore(raw) {
     const data = JSON.parse(raw);
     const pages = Array.isArray(data) ? data : data.pages ?? [];
@@ -26,6 +32,7 @@ function parseStore(raw) {
         headerStyle: store.headerStyle,
         footerStyle: store.footerStyle,
         buttonStyle: store.buttonStyle,
+        footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
         hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
     };
 }

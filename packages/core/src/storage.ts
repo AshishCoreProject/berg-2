@@ -4,7 +4,7 @@
  */
 
 import type { StoreData, StorageAdapter } from './types.js';
-import type { StoredPage } from '@berg/schema';
+import type { FooterLinksConfig, StoredPage } from '@berg/schema';
 import { logger } from './logger.js';
 
 export const STORAGE_KEY = 'berg-pages';
@@ -17,6 +17,12 @@ function isStoredPage(p: unknown): p is StoredPage {
     'slug' in p &&
     'document' in p
   );
+}
+
+function isFooterLinksConfig(v: unknown): v is FooterLinksConfig {
+  if (typeof v !== 'object' || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
 }
 
 function parseStore(raw: string): StoreData {
@@ -34,6 +40,7 @@ function parseStore(raw: string): StoreData {
     headerStyle: store.headerStyle,
     footerStyle: store.footerStyle,
     buttonStyle: store.buttonStyle,
+    footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
     hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
   };
 }

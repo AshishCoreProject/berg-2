@@ -6,9 +6,9 @@
 export type Viewport = 'desktop' | 'tablet' | 'mobile';
 
 export const VIEWPORT_WIDTHS: Record<Viewport, number> = {
-  desktop: 960,
+  desktop: 1460,
   tablet: 768,
-  mobile: 375,
+  mobile: 576,
 };
 
 interface Props {

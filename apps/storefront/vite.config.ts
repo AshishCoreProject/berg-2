@@ -11,6 +11,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
       '@berg/schema': path.resolve(__dirname, '../../packages/schema/src/index.ts'),
       '@berg/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@berg/layout': path.resolve(__dirname, '../../packages/layout/src/index.ts'),
     },
   },
   server: { port: 5174 },

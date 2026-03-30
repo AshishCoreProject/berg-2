@@ -87,6 +87,43 @@ export interface SiteSettings {
   apiBaseUrl?: string;
 }
 
+/** Footer link item (label + URL) */
+export interface FooterLinkItem {
+  id: string;
+  label: string;
+  url: string;
+  /**
+   * If true, open in a new tab with `rel="noopener noreferrer"`.
+   * For internal links, we normally let the SPA handle navigation.
+   */
+  openInNewTab?: boolean;
+}
+
+/** A column of footer links under a heading (e.g. "Shop"). */
+export interface FooterLinkColumn {
+  id: string;
+  title: string;
+  /** Optional color for the column heading (e.g. '#ffffff'). */
+  titleColor?: string;
+  /** Optional background color for the column heading (e.g. '#111827'). */
+  titleBackgroundColor?: string;
+  links: FooterLinkItem[];
+}
+
+/** Footer brand content on the left side. */
+export interface FooterBrand {
+  subtitle?: string;
+  cta?: FooterLinkItem;
+}
+
+/** Config for the footer's multi-column link layout. */
+export interface FooterLinksConfig {
+  brand?: FooterBrand;
+  columns: FooterLinkColumn[];
+  /** Links rendered in the bottom right row (e.g. "Privacy", "Terms"). */
+  bottomLinks: FooterLinkItem[];
+}
+
 /** Generate a simple unique id for new blocks. */
 export function createBlockId(): string {
   return `block-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -95,6 +132,11 @@ export function createBlockId(): string {
 /** Generate a unique page id. */
 export function createPageId(): string {
   return `page-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Generate a unique id for footer link items. */
+export function createFooterLinkId(): string {
+  return `footerlink-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 /** Slugify a string for URL-safe slug (lowercase, hyphens, no special chars). */

@@ -12,6 +12,7 @@
   "dependencies": {
     "@berg/blocks": "*",
     "@berg/core": "*",
+    "@berg/layout": "*",
     "@berg/schema": "*",
     "@tailwindcss/vite": "^4.2.1",
     "react": "^18.2.0",

@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w @berg/schema && npm run build -w @berg/core && npm run build -w @berg/blocks && npm run build --workspaces --if-present",
+    "build": "npm run build -w @berg/schema && npm run build -w @berg/core && npm run build -w @berg/layout && npm run build -w @berg/blocks && npm run build --workspaces --if-present",
     "build:schema": "npm run build -w @berg/schema",
     "build:core": "npm run build -w @berg/core",
     "dev:builder": "npm run dev -w apps/builder",

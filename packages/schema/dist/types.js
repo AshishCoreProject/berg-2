@@ -15,6 +15,10 @@ export function createBlockId() {
 export function createPageId() {
     return `page-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
+/** Generate a unique id for footer link items. */
+export function createFooterLinkId() {
+    return `footerlink-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
 /** Slugify a string for URL-safe slug (lowercase, hyphens, no special chars). */
 export function slugify(text) {
     return text

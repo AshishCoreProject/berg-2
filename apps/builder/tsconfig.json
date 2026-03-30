@@ -27,6 +27,9 @@
       "@berg/core": [
         "../../packages/core/src/index.ts"
       ],
+      "@berg/layout": [
+        "../../packages/layout/src/index.ts"
+      ],
       "@/*": [
         "src/*"
       ]
