@@ -80,7 +80,9 @@
   color: var(--accent-foreground);
   border-radius: var(--radius-md);
   font-weight: 500;
-  transition: opacity 0.2s, transform 0.15s;
+  transition:
+    opacity 0.2s,
+    transform 0.15s;
 }
 
 .block-content .button-link:hover {

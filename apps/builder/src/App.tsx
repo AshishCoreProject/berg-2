@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   PageDocument,
   Block,
@@ -17,17 +17,24 @@ import { BlockInserter, BlockToolbarSidebar, BLOCK_DRAG_TYPE } from '@/component
 import { GridCanvas, ViewportSwitcher, VIEWPORT_WIDTHS, type Viewport } from '@/components/canvas';
 import { PageMetaEditor, PageList, AddPageModal } from '@/features/pages';
 import { SiteSettings } from '@/features/settings';
-import { SidebarTabs } from '@/features/sidebar';
+import { SidebarTabs, LayersTree } from '@/features/sidebar';
 import { BuilderHeaderPreview, BuilderFooterPreview } from '@/features/layout';
 import './App.css';
 /* Storefront block styles for pixel-perfect preview (same as storefront) */
 import '../../storefront/src/App.css';
+
+const HISTORY_LIMIT = 50;
 
 const defaultDocument = (): PageDocument => ({
   version: SCHEMA_VERSION,
   meta: { title: 'Untitled Page', description: '' },
   blocks: [],
 });
+
+const cloneStoreData = (value: StoreData): StoreData => {
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value)) as StoreData;
+};
 
 function ensureStore(): StoreData {
   const s = loadStore();
@@ -45,6 +52,8 @@ function ensureStore(): StoreData {
 
 export default function App() {
   const [store, setStore] = useState<StoreData>(ensureStore);
+  const [undoStack, setUndoStack] = useState<StoreData[]>([]);
+  const [redoStack, setRedoStack] = useState<StoreData[]>([]);
   const pages = store.pages;
   const [currentPageId, setCurrentPageId] = useState<string | null>(() => {
     const s = ensureStore();
@@ -55,6 +64,9 @@ export default function App() {
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
   const [addPageModalOpen, setAddPageModalOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<null | { id: string; x: number; y: number }>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const transactionSnapshotRef = useRef<StoreData | null>(null);
 
   const currentPage = useMemo(
     () => pages.find((p) => p.id === currentPageId) ?? null,
@@ -62,11 +74,36 @@ export default function App() {
   );
   const doc = currentPage?.document ?? defaultDocument();
 
-  const persistStore = useCallback((updater: (prev: StoreData) => StoreData) => {
-    setStore((prev) => {
-      const next = updater(prev);
-      saveStore(next);
-      return next;
+  const pushCappedSnapshot = useCallback((snapshot: StoreData, appendTo: StoreData[]) => {
+    const next = [...appendTo, cloneStoreData(snapshot)];
+    return next.length > HISTORY_LIMIT ? next.slice(next.length - HISTORY_LIMIT) : next;
+  }, []);
+
+  const applyStoreChange = useCallback(
+    (updater: (prev: StoreData) => StoreData) => {
+      setStore((prevStore) => {
+        const nextStore = cloneStoreData(updater(prevStore));
+        setUndoStack((prevUndo) => pushCappedSnapshot(prevStore, prevUndo));
+        setRedoStack([]);
+        saveStore(nextStore);
+        return nextStore;
+      });
+    },
+    [pushCappedSnapshot]
+  );
+
+  const persistStore = useCallback(
+    (updater: (prev: StoreData) => StoreData) => {
+      applyStoreChange(updater);
+    },
+    [applyStoreChange]
+  );
+
+  const persistStoreWithoutHistory = useCallback((updater: (prev: StoreData) => StoreData) => {
+    setStore((prevStore) => {
+      const nextStore = cloneStoreData(updater(prevStore));
+      saveStore(nextStore);
+      return nextStore;
     });
   }, []);
 
@@ -75,6 +112,13 @@ export default function App() {
       persistStore((prev) => ({ ...prev, pages: next }));
     },
     [persistStore]
+  );
+
+  const persistPagesWithoutHistory = useCallback(
+    (next: StoredPage[]) => {
+      persistStoreWithoutHistory((prev) => ({ ...prev, pages: next }));
+    },
+    [persistStoreWithoutHistory]
   );
 
   const setHomeSlug = useCallback(
@@ -159,11 +203,50 @@ export default function App() {
   const createDemoStore = useCallback(() => {
     const next = buildDemoStore({ useDemoData: store.useDemoData ?? true });
     saveStore(next);
+    setUndoStack((prevUndo) => pushCappedSnapshot(store, prevUndo));
+    setRedoStack([]);
     setStore(next);
     const firstPageId = next.pages[0]?.id ?? null;
     setCurrentPageId(firstPageId);
     setSelectedBlockId(null);
-  }, [store.useDemoData]);
+  }, [store, store.useDemoData, pushCappedSnapshot]);
+
+  const getSafeCurrentPageId = useCallback((candidateId: string | null, nextStore: StoreData) => {
+    if (candidateId && nextStore.pages.some((p) => p.id === candidateId)) return candidateId;
+    return nextStore.pages[0]?.id ?? null;
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((prevUndo) => {
+      if (prevUndo.length === 0) return prevUndo;
+      const restored = prevUndo[prevUndo.length - 1]!;
+      const nextUndo = prevUndo.slice(0, -1);
+      setStore((currentStore) => {
+        setRedoStack((prevRedo) => pushCappedSnapshot(currentStore, prevRedo));
+        const restoredSnapshot = cloneStoreData(restored);
+        saveStore(restoredSnapshot);
+        setCurrentPageId((currentId) => getSafeCurrentPageId(currentId, restoredSnapshot));
+        return restoredSnapshot;
+      });
+      return nextUndo;
+    });
+  }, [getSafeCurrentPageId, pushCappedSnapshot]);
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((prevRedo) => {
+      if (prevRedo.length === 0) return prevRedo;
+      const restored = prevRedo[prevRedo.length - 1]!;
+      const nextRedo = prevRedo.slice(0, -1);
+      setStore((currentStore) => {
+        setUndoStack((prevUndo) => pushCappedSnapshot(currentStore, prevUndo));
+        const restoredSnapshot = cloneStoreData(restored);
+        saveStore(restoredSnapshot);
+        setCurrentPageId((currentId) => getSafeCurrentPageId(currentId, restoredSnapshot));
+        return restoredSnapshot;
+      });
+      return nextRedo;
+    });
+  }, [getSafeCurrentPageId, pushCappedSnapshot]);
 
   // Apply theme and accent to document (builder UI)
   useEffect(() => {
@@ -185,6 +268,32 @@ export default function App() {
     },
     [currentPage, currentPageId, pages, persistPages]
   );
+
+  const updateDocWithoutHistory = useCallback(
+    (updater: (d: PageDocument) => PageDocument) => {
+      if (!currentPage) return;
+      const nextDoc = updater(currentPage.document);
+      persistPagesWithoutHistory(
+        pages.map((p) =>
+          p.id === currentPageId ? { ...p, document: nextDoc } : p
+        )
+      );
+    },
+    [currentPage, currentPageId, pages, persistPagesWithoutHistory]
+  );
+
+  const beginHistoryTransaction = useCallback(() => {
+    if (transactionSnapshotRef.current) return;
+    transactionSnapshotRef.current = cloneStoreData(store);
+  }, [store]);
+
+  const endHistoryTransaction = useCallback(() => {
+    const snapshot = transactionSnapshotRef.current;
+    if (!snapshot) return;
+    transactionSnapshotRef.current = null;
+    setUndoStack((prevUndo) => pushCappedSnapshot(snapshot, prevUndo));
+    setRedoStack([]);
+  }, [pushCappedSnapshot]);
 
   const updateMeta = useCallback(
     (meta: Partial<PageDocument['meta']>) => {
@@ -215,6 +324,36 @@ export default function App() {
 
   const openAddPageModal = useCallback(() => setAddPageModalOpen(true), []);
   const closeAddPageModal = useCallback(() => setAddPageModalOpen(false), []);
+
+  const openContextMenu = useCallback((id: string, clientX: number, clientY: number) => {
+    // Simple clamping so the menu stays visible without measuring its exact size.
+    const menuW = 220;
+    const menuH = 260;
+    const margin = 8;
+    const x = Math.max(margin, Math.min(clientX, window.innerWidth - menuW - margin));
+    const y = Math.max(margin, Math.min(clientY + 2, window.innerHeight - menuH - margin));
+    setContextMenu({ id, x, y });
+    setSelectedBlockId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!contextMenu) return undefined;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const el = contextMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && el.contains(e.target)) return;
+      setContextMenu(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [contextMenu]);
 
   const addPageConfirm = useCallback(
     (title: string, slug: string) => {
@@ -311,9 +450,98 @@ export default function App() {
     [doc.blocks, updateDoc]
   );
 
+  const insertChildBlock = useCallback(
+    (parentId: string, type: BlockType, xPct: number, yPct: number) => {
+      const def = getBlockDefinition(type);
+      const id = createBlockId();
+      const clampPct = (n: number) => Math.max(0, Math.min(100, n));
+
+      // Default child size in % of the parent’s rendered box.
+      // (Position is already percent-based; this makes the initial layer visible even
+      // before the user resizes.)
+      const wPctDefault = 25;
+      const hPctDefault = 10;
+
+      const clampLayerX = (n: number) => clampPct(n);
+      const clampLayerY = (n: number) => clampPct(n);
+
+      const findAnyBlock = (blocks: Block[], searchId: string): Block | null => {
+        for (const b of blocks) {
+          if (b.id === searchId) return b;
+          if (isInnerBlocksBlock(b) && b.innerBlocks) {
+            const found = findAnyBlock(b.innerBlocks, searchId);
+            if (found) return found;
+          }
+          const anyB = b as unknown as { children?: Block[] };
+          if (Array.isArray(anyB.children)) {
+            const found = findAnyBlock(anyB.children, searchId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      updateDoc((d) => {
+        const parentBlock = findAnyBlock(d.blocks, parentId);
+        const parentHRows = ((parentBlock?.attributes?.layout as { h?: number } | undefined)?.h ?? 2) as number;
+        const childHRows = Math.max(1, Math.round((hPctDefault / 100) * parentHRows));
+
+        const childX = clampLayerX(xPct);
+        const childY = clampLayerY(yPct);
+        const maxX = 100 - wPctDefault;
+        const maxY = 100 - hPctDefault;
+
+        const xPctClamped = Math.max(0, Math.min(maxX, childX));
+        const yPctClamped = Math.max(0, Math.min(maxY, childY));
+
+        const child: Block = {
+          id,
+          type,
+          attributes: {
+            ...def.defaultAttributes,
+            layerLayout: { xPct: xPctClamped, yPct: yPctClamped, wPct: wPctDefault, hPct: hPctDefault },
+            // Used by BlockEditor overlay preview for initial height.
+            layout: { x: 0, y: 0, w: 12, h: childHRows, minW: 1, minH: 1 },
+            gridColumnSpan: 12,
+            gridColumnStart: 1,
+          },
+        };
+
+        const insertIntoReal = (blocks: Block[]): Block[] =>
+          blocks.map((b) => {
+            if (b.id === parentId) {
+              const anyB = b as unknown as { children?: Block[] };
+              const existing = Array.isArray(anyB.children) ? anyB.children : [];
+              return { ...b, children: [...existing, child] };
+            }
+
+            const anyB = b as unknown as { innerBlocks?: Block[]; children?: Block[] };
+            const nextInner =
+              isInnerBlocksBlock(b) && Array.isArray(anyB.innerBlocks) ? insertIntoReal(anyB.innerBlocks) : anyB.innerBlocks;
+            const nextChildren = Array.isArray(anyB.children) ? insertIntoReal(anyB.children) : anyB.children;
+
+            const innerChanged = nextInner !== anyB.innerBlocks;
+            const childrenChanged = nextChildren !== anyB.children;
+
+            if (!innerChanged && !childrenChanged) return b;
+
+            return {
+              ...b,
+              ...(innerChanged && isInnerBlocksBlock(b) ? { innerBlocks: nextInner } : {}),
+              ...(childrenChanged ? { children: nextChildren } : {}),
+            };
+          });
+
+        return { ...d, blocks: insertIntoReal(d.blocks) };
+      });
+      setSelectedBlockId(id);
+    },
+    [updateDoc]
+  );
+
   const updateBlock = useCallback(
-    (id: string, attrs: Record<string, unknown> & { innerBlocks?: Block[] }) => {
-      const { innerBlocks: innerBlocksUpdate, ...restAttrs } = attrs;
+    (id: string, attrs: Record<string, unknown> & { innerBlocks?: Block[]; children?: Block[] }) => {
+      const { innerBlocks: innerBlocksUpdate, children: childrenUpdate, ...restAttrs } = attrs;
       updateDoc((d) => ({
         ...d,
         blocks: d.blocks.map((b) => {
@@ -325,6 +553,9 @@ export default function App() {
           if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
             (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
           }
+          if (childrenUpdate !== undefined) {
+            (next as { children?: Block[] }).children = childrenUpdate;
+          }
           return next;
         }),
       }));
@@ -332,16 +563,45 @@ export default function App() {
     [updateDoc]
   );
 
+  const updateBlockTransient = useCallback(
+    (id: string, attrs: Record<string, unknown> & { innerBlocks?: Block[]; children?: Block[] }) => {
+      const { innerBlocks: innerBlocksUpdate, children: childrenUpdate, ...restAttrs } = attrs;
+      updateDocWithoutHistory((d) => ({
+        ...d,
+        blocks: d.blocks.map((b) => {
+          if (b.id !== id) return b;
+          const next: Block = {
+            ...b,
+            attributes: { ...b.attributes, ...restAttrs },
+          };
+          if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
+            (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
+          }
+          if (childrenUpdate !== undefined) {
+            (next as { children?: Block[] }).children = childrenUpdate;
+          }
+          return next;
+        }),
+      }));
+    },
+    [updateDocWithoutHistory]
+  );
+
   const deleteBlock = useCallback(
     (id: string) => {
       const remove = (blocks: Block[]): Block[] =>
         blocks
           .filter((b) => b.id !== id)
-          .map((b) =>
-            isInnerBlocksBlock(b) && b.innerBlocks
-              ? { ...b, innerBlocks: remove(b.innerBlocks) }
-              : b
-          );
+          .map((b) => {
+            const anyB = b as unknown as { innerBlocks?: Block[]; children?: Block[] };
+            const nextInner = isInnerBlocksBlock(b) && anyB.innerBlocks ? remove(anyB.innerBlocks) : anyB.innerBlocks;
+            const nextChildren = Array.isArray(anyB.children) ? remove(anyB.children) : anyB.children;
+            return {
+              ...(b as Block),
+              ...(nextInner !== anyB.innerBlocks && { innerBlocks: nextInner }),
+              ...(nextChildren !== anyB.children && { children: nextChildren }),
+            };
+          });
       updateDoc((d) => ({ ...d, blocks: remove(d.blocks) }));
       if (selectedBlockId === id) setSelectedBlockId(null);
     },
@@ -378,6 +638,34 @@ export default function App() {
     },
     [doc.blocks, updateDoc]
   );
+
+  function findBlockInTree(blocks: Block[], id: string): null | {
+    block: Block;
+    parent: Block;
+    index: number;
+    container: 'innerBlocks' | 'children';
+  } {
+    for (const parent of blocks) {
+      if (isInnerBlocksBlock(parent) && Array.isArray(parent.innerBlocks)) {
+        const idx = parent.innerBlocks.findIndex((b) => b.id === id);
+        if (idx >= 0) {
+          return { block: parent.innerBlocks[idx]!, parent, index: idx, container: 'innerBlocks' };
+        }
+        const deeper = findBlockInTree(parent.innerBlocks, id);
+        if (deeper) return deeper;
+      }
+      const anyParent = parent as unknown as { children?: Block[] };
+      if (Array.isArray(anyParent.children)) {
+        const idx = anyParent.children.findIndex((b) => b.id === id);
+        if (idx >= 0) {
+          return { block: anyParent.children[idx]!, parent, index: idx, container: 'children' };
+        }
+        const deeper = findBlockInTree(anyParent.children, id);
+        if (deeper) return deeper;
+      }
+    }
+    return null;
+  }
 
   const handleDropBlock = useCallback(
     (type: BlockType, droppedLayout: { x: number; y: number; w: number; h: number }) => {
@@ -519,6 +807,13 @@ export default function App() {
 
   const handleLayoutChange = useCallback(
     (layouts: { lg: Array<{ i: string; x: number; y: number; w: number; h: number }> }) => {
+      void layouts;
+    },
+    []
+  );
+
+  const handleLayoutCommit = useCallback(
+    (layouts: { lg: Array<{ i: string; x: number; y: number; w: number; h: number }> }) => {
       const lg = layouts.lg;
       if (!lg || !currentPage) return;
       const updates = new Map(lg.map((item) => [item.i, { layout: { x: item.x, y: item.y, w: item.w, h: item.h }, gridColumnSpan: item.w, gridColumnStart: item.x + 1 }]));
@@ -565,11 +860,42 @@ export default function App() {
     window.open(`${base}${targetPath}#${hash}`, '_blank');
   }, [pages, store.siteTitle, store.homeSlug, store.theme, store.accentColor, store.useDemoData, currentPage?.slug]);
 
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
   return (
     <div className="app">
       <header className="app-header">
         <div className="app-brand">Berg</div>
         <div className="app-actions">
+          <div className="history-actions" role="group" aria-label="History actions">
+            <button
+              type="button"
+              className="btn btn-icon"
+              onClick={handleUndo}
+              aria-label="Undo"
+              title="Undo"
+              disabled={!canUndo}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10a6 6 0 0 1 0 12h-1" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="btn btn-icon"
+              onClick={handleRedo}
+              aria-label="Redo"
+              title="Redo"
+              disabled={!canRedo}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H10a6 6 0 0 0 0 12h1" />
+              </svg>
+            </button>
+          </div>
           <button type="button" className="btn btn-primary" onClick={openStorefront}>
             View storefront
           </button>
@@ -649,6 +975,17 @@ export default function App() {
                 <p className="sidebar-empty-hint">Add a page first.</p>
               )
             }
+            layersContent={
+              currentPage ? (
+                <LayersTree
+                  blocks={doc.blocks}
+                  selectedBlockId={selectedBlockId}
+                  onSelect={setSelectedBlockId}
+                />
+              ) : (
+                <p className="sidebar-empty-hint">Add a page first.</p>
+              )
+            }
           />
           </aside>
         </div>
@@ -715,11 +1052,16 @@ export default function App() {
                   selectedBlockId={selectedBlockId}
                   onSelectBlock={setSelectedBlockId}
                   onUpdateBlock={updateBlock}
+                  onTransientUpdateBlock={updateBlockTransient}
+                  onHistoryTransactionStart={beginHistoryTransaction}
+                  onHistoryTransactionEnd={endHistoryTransaction}
                   onDeleteBlock={deleteBlock}
                   onMoveBlock={moveBlock}
                   onLayoutChange={handleLayoutChange}
+                  onLayoutCommit={handleLayoutCommit}
                   onDropBlock={handleDropBlock}
                   onInsertBlock={(type, index) => insertBlock(type, index)}
+                onInsertChildBlock={insertChildBlock}
                   toolbarInSidebar={!!selectedBlockId}
                   canvasWidth={
                     leftSidebarCollapsed && (!selectedBlockId || rightSidebarCollapsed)
@@ -731,6 +1073,7 @@ export default function App() {
                   }
                   apiBaseUrl={store.apiBaseUrl}
                   useDemoData={store.useDemoData ?? false}
+                  onRequestContextMenu={openContextMenu}
                 />
               )}
               <BuilderFooterPreview
@@ -748,50 +1091,198 @@ export default function App() {
           </div>
         </main>
 
-        {currentPage && selectedBlockId && (() => {
-          function findBlock(blocks: Block[], id: string): { block: Block; parent: Block | null; index: number } | null {
-            for (let i = 0; i < blocks.length; i++) {
-              if (blocks[i].id === id) return { block: blocks[i], parent: null, index: i };
-              const b = blocks[i];
-              if (isInnerBlocksBlock(b) && b.innerBlocks) {
-                const found = findBlock(b.innerBlocks, id);
-                if (found) return { ...found, parent: found.parent ?? b };
+        {contextMenu &&
+          (() => {
+            const inDoc = doc.blocks.find((b) => b.id === contextMenu.id);
+            const idx = doc.blocks.findIndex((b) => b.id === contextMenu.id);
+            const nested = !inDoc ? findBlockInTree(doc.blocks, contextMenu.id) : null;
+            const block = inDoc ? (idx >= 0 ? doc.blocks[idx] : null) : nested?.block ?? null;
+            if (!block) return null;
+
+            const isNestedField = !!nested;
+            const parentForm = nested?.parent ?? null;
+            const nestedContainer = nested?.container ?? null;
+            const blockTypeLabel = block.type.replace('core/', '').replace('store/', '');
+
+            const canInsertAbove = !isNestedField && idx >= 0;
+            const canInsertBelow = !isNestedField && idx >= 0;
+
+            const canMoveUp = isNestedField
+              ? (() => {
+                  if (!parentForm || !nestedContainer) return false;
+                  const innerOrChildren =
+                    nestedContainer === 'innerBlocks'
+                      ? ((parentForm as unknown as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                      : ((parentForm as unknown as { children?: Block[] }).children ?? []);
+                  const i = innerOrChildren.findIndex((f) => f.id === block.id);
+                  return i > 0;
+                })()
+              : idx > 0;
+
+            const canMoveDown = isNestedField
+              ? (() => {
+                  if (!parentForm || !nestedContainer) return false;
+                  const innerOrChildren =
+                    nestedContainer === 'innerBlocks'
+                      ? ((parentForm as unknown as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                      : ((parentForm as unknown as { children?: Block[] }).children ?? []);
+                  const i = innerOrChildren.findIndex((f) => f.id === block.id);
+                  return i >= 0 && i < innerOrChildren.length - 1;
+                })()
+              : idx >= 0 && idx < doc.blocks.length - 1;
+
+            const handleDelete = () => {
+              if (isNestedField && parentForm && nestedContainer) {
+                if (nestedContainer === 'innerBlocks') {
+                  const nextInner =
+                    ((parentForm as unknown as { innerBlocks?: Block[] }).innerBlocks ?? []).filter((f) => f.id !== block.id);
+                  updateBlock(parentForm.id, { innerBlocks: nextInner });
+                } else {
+                  const nextChildren =
+                    ((parentForm as unknown as { children?: Block[] }).children ?? []).filter((f) => f.id !== block.id);
+                  updateBlock(parentForm.id, { children: nextChildren });
+                }
+                setSelectedBlockId(parentForm.id);
+              } else {
+                deleteBlock(block.id);
               }
-            }
-            return null;
-          }
+              setContextMenu(null);
+            };
+
+            const handleInsertAbove = () => {
+              if (isNestedField) return;
+              if (idx < 0) return;
+              insertBlock('core/paragraph', idx);
+              setContextMenu(null);
+            };
+
+            const handleInsertBelow = () => {
+              if (isNestedField) return;
+              if (idx < 0) return;
+              insertBlock('core/paragraph', idx + 1);
+              setContextMenu(null);
+            };
+
+            const handleMoveUp = () => {
+              if (isNestedField && parentForm && nestedContainer) {
+                const innerOrChildren =
+                  nestedContainer === 'innerBlocks'
+                    ? ((parentForm as unknown as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                    : ((parentForm as unknown as { children?: Block[] }).children ?? []);
+                const i = innerOrChildren.findIndex((f) => f.id === block.id);
+                if (i <= 0) return;
+                const next = [...innerOrChildren];
+                [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                if (nestedContainer === 'innerBlocks') updateBlock(parentForm.id, { innerBlocks: next });
+                else updateBlock(parentForm.id, { children: next });
+              } else {
+                if (idx <= 0) return;
+                moveBlock(block.id, 'up');
+              }
+              setContextMenu(null);
+            };
+
+            const handleMoveDown = () => {
+              if (isNestedField && parentForm && nestedContainer) {
+                const innerOrChildren =
+                  nestedContainer === 'innerBlocks'
+                    ? ((parentForm as unknown as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                    : ((parentForm as unknown as { children?: Block[] }).children ?? []);
+                const i = innerOrChildren.findIndex((f) => f.id === block.id);
+                if (i < 0 || i >= innerOrChildren.length - 1) return;
+                const next = [...innerOrChildren];
+                [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                if (nestedContainer === 'innerBlocks') updateBlock(parentForm.id, { innerBlocks: next });
+                else updateBlock(parentForm.id, { children: next });
+              } else {
+                if (idx >= doc.blocks.length - 1) return;
+                moveBlock(block.id, 'down');
+              }
+              setContextMenu(null);
+            };
+
+            return (
+              <div
+                ref={contextMenuRef}
+                className="block-context-menu"
+                role="menu"
+                style={{ left: contextMenu.x, top: contextMenu.y }}
+              >
+                <div className="block-context-menu-header">
+                  <span className="block-context-menu-title">{blockTypeLabel}</span>
+                  <span className="block-context-menu-hint">Actions</span>
+                </div>
+                <div className="block-context-menu-actions">
+                  {canInsertAbove && (
+                    <button type="button" className="toolbar-btn" onClick={handleInsertAbove} role="menuitem">
+                      Insert above
+                    </button>
+                  )}
+                  {canInsertBelow && (
+                    <button type="button" className="toolbar-btn" onClick={handleInsertBelow} role="menuitem">
+                      Insert below
+                    </button>
+                  )}
+                  {canMoveUp && (
+                    <button type="button" className="toolbar-btn" onClick={handleMoveUp} role="menuitem">
+                      Move up
+                    </button>
+                  )}
+                  {canMoveDown && (
+                    <button type="button" className="toolbar-btn" onClick={handleMoveDown} role="menuitem">
+                      Move down
+                    </button>
+                  )}
+                  <button type="button" className="toolbar-btn danger" onClick={handleDelete} role="menuitem">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+        {currentPage && selectedBlockId && (() => {
           const inDoc = doc.blocks.find((b) => b.id === selectedBlockId);
           const idx = doc.blocks.findIndex((b) => b.id === selectedBlockId);
-          const nested = !inDoc ? (() => {
-            for (const b of doc.blocks) {
-              if (isInnerBlocksBlock(b) && b.innerBlocks) {
-                const found = findBlock(b.innerBlocks, selectedBlockId);
-                if (found) return { block: found.block, parent: b };
-              }
-            }
-            return null;
-          })() : null;
+          const nested = !inDoc ? findBlockInTree(doc.blocks, selectedBlockId) : null;
           const block = inDoc ? (idx >= 0 ? doc.blocks[idx] : null) : nested?.block ?? null;
           if (!block) return null;
           const isNestedField = !!nested;
           const parentForm = nested?.parent ?? null;
+          const nestedContainer = nested?.container ?? null;
           const layout = block.attributes?.layout as { w?: number; x?: number } | undefined;
           const gridColumnSpan = (layout?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12);
           const gridColumnStart = (layout?.x != null ? (layout.x + 1) : ((block.attributes?.gridColumnStart as number) ?? 1));
           const handleUpdate = (attrs: Record<string, unknown> & { innerBlocks?: Block[] }) => {
-            if (isNestedField && parentForm) {
-              const nextInner = (parentForm as { innerBlocks?: Block[] }).innerBlocks?.map((f) =>
-                f.id === block.id ? { ...f, attributes: { ...f.attributes, ...attrs } } : f
-              ) ?? [];
-              updateBlock(parentForm.id, { innerBlocks: nextInner });
+            if (isNestedField && parentForm && nestedContainer) {
+              if (nestedContainer === 'innerBlocks') {
+                const nextInner =
+                  (parentForm as { innerBlocks?: Block[] }).innerBlocks?.map((f) =>
+                    f.id === block.id ? { ...f, attributes: { ...f.attributes, ...attrs } } : f
+                  ) ?? [];
+                updateBlock(parentForm.id, { innerBlocks: nextInner });
+              } else {
+                const nextChildren =
+                  (parentForm as unknown as { children?: Block[] }).children?.map((f) =>
+                    f.id === block.id ? { ...f, attributes: { ...f.attributes, ...attrs } } : f
+                  ) ?? [];
+                updateBlock(parentForm.id, { children: nextChildren });
+              }
             } else {
               updateBlock(block.id, attrs);
             }
           };
           const handleDelete = () => {
-            if (isNestedField && parentForm) {
-              const nextInner = (parentForm as { innerBlocks?: Block[] }).innerBlocks?.filter((f) => f.id !== block.id) ?? [];
-              updateBlock(parentForm.id, { innerBlocks: nextInner });
+            if (isNestedField && parentForm && nestedContainer) {
+              if (nestedContainer === 'innerBlocks') {
+                const nextInner =
+                  (parentForm as { innerBlocks?: Block[] }).innerBlocks?.filter((f) => f.id !== block.id) ?? [];
+                updateBlock(parentForm.id, { innerBlocks: nextInner });
+              } else {
+                const nextChildren =
+                  (parentForm as unknown as { children?: Block[] }).children?.filter((f) => f.id !== block.id) ?? [];
+                updateBlock(parentForm.id, { children: nextChildren });
+              }
               setSelectedBlockId(parentForm.id);
             } else {
               deleteBlock(block.id);
@@ -821,25 +1312,35 @@ export default function App() {
                 onDelete={handleDelete}
                 onMoveUp={isNestedField && parentForm
                   ? (() => {
-                      const inner = (parentForm as { innerBlocks?: Block[] }).innerBlocks ?? [];
-                      const i = inner.findIndex((f) => f.id === block.id);
+                      if (!nestedContainer) return undefined;
+                      const arr =
+                        nestedContainer === 'innerBlocks'
+                          ? ((parentForm as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                          : (((parentForm as unknown as { children?: Block[] }).children ?? []) as Block[]);
+                      const i = arr.findIndex((f) => f.id === block.id);
                       if (i <= 0) return undefined;
                       return () => {
-                        const next = [...inner];
+                        const next = [...arr];
                         [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                        updateBlock(parentForm.id, { innerBlocks: next });
+                        if (nestedContainer === 'innerBlocks') updateBlock(parentForm.id, { innerBlocks: next });
+                        else updateBlock(parentForm.id, { children: next });
                       };
                     })()
                   : idx > 0 ? () => moveBlock(block.id, 'up') : undefined}
                 onMoveDown={isNestedField && parentForm
                   ? (() => {
-                      const inner = (parentForm as { innerBlocks?: Block[] }).innerBlocks ?? [];
-                      const i = inner.findIndex((f) => f.id === block.id);
-                      if (i < 0 || i >= inner.length - 1) return undefined;
+                      if (!nestedContainer) return undefined;
+                      const arr =
+                        nestedContainer === 'innerBlocks'
+                          ? ((parentForm as { innerBlocks?: Block[] }).innerBlocks ?? [])
+                          : (((parentForm as unknown as { children?: Block[] }).children ?? []) as Block[]);
+                      const i = arr.findIndex((f) => f.id === block.id);
+                      if (i < 0 || i >= arr.length - 1) return undefined;
                       return () => {
-                        const next = [...inner];
+                        const next = [...arr];
                         [next[i], next[i + 1]] = [next[i + 1], next[i]];
-                        updateBlock(parentForm.id, { innerBlocks: next });
+                        if (nestedContainer === 'innerBlocks') updateBlock(parentForm.id, { innerBlocks: next });
+                        else updateBlock(parentForm.id, { children: next });
                       };
                     })()
                   : idx < doc.blocks.length - 1 ? () => moveBlock(block.id, 'down') : undefined}
@@ -847,11 +1348,18 @@ export default function App() {
                 onInsertBelow={!isNestedField ? () => insertBlock('core/paragraph', idx + 1) : undefined}
                 gridColumnSpan={gridColumnSpan}
                 gridColumnStart={gridColumnStart}
-                onGridChange={(span, start) => updateBlock(block.id, {
-                  layout: { ...(block.attributes?.layout as object || {}), x: start - 1, w: span, h: (block.attributes?.layout as { h?: number })?.h ?? 2 },
-                  gridColumnSpan: span,
-                  gridColumnStart: start,
-                })}
+                onGridChange={(span, start) =>
+                  handleUpdate({
+                    layout: {
+                      ...(block.attributes?.layout as object || {}),
+                      x: start - 1,
+                      w: span,
+                      h: (block.attributes?.layout as { h?: number })?.h ?? 2,
+                    },
+                    gridColumnSpan: span,
+                    gridColumnStart: start,
+                  })
+                }
                 />
               </aside>
             </div>

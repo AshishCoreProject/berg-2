@@ -6,7 +6,8 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  /* clip avoids breaking position:sticky on descendants (hidden can in some browsers) */
+  overflow-x: clip;
 }
 
 /* Full bleed: allow content to extend edge-to-edge */
@@ -18,6 +19,13 @@
   flex-shrink: 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Storefront only: sticky top bar. Scoped to .site-wrap so builder SharedHeader preview (no site-wrap) is unchanged. z-index below .site-nav-backdrop (999). */
+.site-wrap > .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 /* Matches builder canvas width (960px) for visual consistency */
@@ -597,7 +605,8 @@
 }
 
 .button-link:hover {
-  opacity: 0.9;
+  /* opacity: 0.9; */
+  color: #fff;
   text-decoration: none;
 }
 

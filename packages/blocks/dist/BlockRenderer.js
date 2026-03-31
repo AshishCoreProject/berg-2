@@ -51,7 +51,7 @@ function buildSpacingStyle(attrs) {
     }
     return s;
 }
-export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
     const textStyle = () => {
@@ -430,7 +430,26 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
         default:
             break;
     }
-    if (!content)
+    const children = block.children;
+    const showChildren = renderChildren !== false && Array.isArray(children) && children.length > 0;
+    if (!content && !showChildren)
         return null;
-    return wrapWithSpacing(content);
+    const base = content ? wrapWithSpacing(content) : null;
+    if (!showChildren)
+        return base;
+    return (_jsxs("div", { style: { position: 'relative', width: '100%', height: '100%', overflow: 'visible' }, children: [base, _jsx("div", { style: { position: 'absolute', inset: 0, pointerEvents: 'auto', overflow: 'visible' }, children: children.map((child) => {
+                    const layerLayout = child.attributes?.layerLayout;
+                    const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
+                    const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
+                    const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
+                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                    return (_jsx("div", { style: {
+                            position: 'absolute',
+                            left: `${xPct}%`,
+                            top: `${yPct}%`,
+                            width: `${wPct}%`,
+                            height: `${hPct}%`,
+                            overflow: 'visible',
+                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, renderChildren: renderChildren }) }, child.id));
+                }) })] }));
 }

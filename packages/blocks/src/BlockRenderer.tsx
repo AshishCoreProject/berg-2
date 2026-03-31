@@ -9,6 +9,12 @@ interface Props {
   block: Block;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  /**
+   * When false, skip rendering `block.children` overlay.
+   * Used by builder to render a clean parent surface and draw children via
+   * its own overlay UI.
+   */
+  renderChildren?: boolean;
 }
 
 /**
@@ -84,7 +90,7 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
   return s;
 }
 
-export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
 
@@ -642,6 +648,40 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
       break;
   }
 
-  if (!content) return null;
-  return wrapWithSpacing(content);
+  const children = block.children;
+  const showChildren = renderChildren !== false && Array.isArray(children) && children.length > 0;
+  if (!content && !showChildren) return null;
+  const base = content ? wrapWithSpacing(content) : null;
+  if (!showChildren) return base;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'visible' }}>
+      {base}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto', overflow: 'visible' }}>
+        {children.map((child) => {
+          const layerLayout = child.attributes?.layerLayout as
+            | { xPct?: number; yPct?: number; wPct?: number; hPct?: number }
+            | undefined;
+          const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
+          const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
+          const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
+          const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+          return (
+            <div
+              key={child.id}
+              style={{
+                position: 'absolute',
+                left: `${xPct}%`,
+                top: `${yPct}%`,
+                width: `${wPct}%`,
+                height: `${hPct}%`,
+                overflow: 'visible',
+              }}
+            >
+              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={renderChildren} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

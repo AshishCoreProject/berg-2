@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import type { Block } from '@berg/schema';
+import { useCallback, useRef, useState } from 'react';
+import type { Block, BlockType } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
 import { BlockRenderer } from '@berg/blocks';
 import { BlockDragHandle } from './BlockDragHandle';
+import { BLOCK_DRAG_TYPE } from './BlockInserter';
 import { ResizableSpacer } from '@/components/canvas';
 import { TextEditor } from '@/components/controls';
 import './BlockPreview.css';
@@ -12,7 +13,12 @@ interface Props {
   isSelected: boolean;
   onSelect: () => void;
   onUpdate: (attrs: Record<string, unknown>) => void;
+  onTransientUpdate?: (attrs: Record<string, unknown>) => void;
+  onHistoryTransactionStart?: () => void;
+  onHistoryTransactionEnd?: () => void;
   onDelete: () => void;
+  /** Request a canvas context menu (right click) for a given block id at screen coordinates. */
+  onRequestContextMenu?: (id: string, clientX: number, clientY: number) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onInsertAbove?: () => void;
@@ -33,6 +39,14 @@ interface Props {
   onSelectNestedBlock?: (id: string) => void;
   /** Check if a nested block is selected (for form field highlight). */
   isNestedSelected?: (id: string) => boolean;
+  /** Insert a new layer child into this block (Figma-like overlay). */
+  onInsertChild?: (parentId: string, type: BlockType, xPct: number, yPct: number) => void;
+  /** Legacy compatibility for right sidebar usage. */
+  selectedBlockId?: string | null;
+  /** Legacy compatibility for right sidebar usage. */
+  onSelectLayer?: (id: string) => void;
+  /** True when this editor instance is rendered inside a parent layer overlay. */
+  isLayerChild?: boolean;
   apiBaseUrl?: string;
   useDemoData?: boolean;
 }
@@ -42,6 +56,9 @@ export function BlockEditor({
   isSelected,
   onSelect,
   onUpdate,
+  onTransientUpdate,
+  onHistoryTransactionStart,
+  onHistoryTransactionEnd,
   onDelete,
   onMoveUp: _onMoveUp,
   onMoveDown: _onMoveDown,
@@ -58,13 +75,250 @@ export function BlockEditor({
   useStorefrontPreview = true,
   onSelectNestedBlock,
   isNestedSelected,
+  onInsertChild,
+  selectedBlockId: _selectedBlockId,
+  onSelectLayer: _onSelectLayer,
+  isLayerChild = false,
   apiBaseUrl,
   useDemoData,
+  onRequestContextMenu,
 }: Props) {
   const [isHover, setIsHover] = useState(false);
 
   const attrs = block.attributes ?? {};
   const set = (key: string, value: unknown) => onUpdate({ [key]: value });
+
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const draggingLayerRef = useRef<
+    null | {
+      childId: string;
+      pointerId: number;
+      offsetXPct: number;
+      offsetYPct: number;
+      wPct: number;
+      hPct: number;
+    }
+  >(null);
+  const resizingLayerRef = useRef<
+    null | {
+      childId: string;
+      pointerId: number;
+      corner: 'tl' | 'tr' | 'bl' | 'br';
+      overlayRect: DOMRect;
+      startClientX: number;
+      startClientY: number;
+      startX: number;
+      startY: number;
+      startW: number;
+      startH: number;
+    }
+  >(null);
+
+  const clampPct = useCallback((n: number) => Math.max(0, Math.min(100, n)), []);
+
+  const updateChildLayerLayout = useCallback(
+    (
+      childId: string,
+      layerPatch: { xPct?: number; yPct?: number; wPct?: number; hPct?: number },
+      layoutPatch?: { h?: number }
+    ) => {
+      const parentChildren = ((block as unknown) as { children?: Block[] }).children ?? [];
+      const nextChildren = parentChildren.map((c) => {
+        if (c.id !== childId) return c;
+        return {
+          ...c,
+          attributes: {
+            ...(c.attributes ?? {}),
+            layerLayout: {
+              ...(((c.attributes as unknown as { layerLayout?: Record<string, unknown> })?.layerLayout ?? {}) as Record<string, unknown>),
+              ...layerPatch,
+            },
+            ...(layoutPatch ? { layout: { ...((c.attributes as unknown as { layout?: Record<string, unknown> })?.layout ?? {}), ...layoutPatch } } : {}),
+          },
+        };
+      });
+      if (draggingLayerRef.current || resizingLayerRef.current) {
+        onTransientUpdate?.({ children: nextChildren });
+        return;
+      }
+      onUpdate({ children: nextChildren });
+    },
+    [block, onTransientUpdate, onUpdate]
+  );
+
+  const updateLayerChild = useCallback(
+    (childId: string, attrs: Record<string, unknown>) => {
+      const { innerBlocks: innerBlocksUpdate, children: childrenUpdate, ...restAttrs } = attrs as Record<string, unknown> & {
+        innerBlocks?: Block[];
+        children?: Block[];
+      };
+      const parentChildren = ((block as unknown) as { children?: Block[] }).children ?? [];
+      const nextChildren = parentChildren.map((c) => {
+        if (c.id !== childId) return c;
+        const next: Block = {
+          ...c,
+          attributes: { ...c.attributes, ...restAttrs },
+        };
+        if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
+          (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
+        }
+        if (childrenUpdate !== undefined) {
+          (next as { children?: Block[] }).children = childrenUpdate;
+        }
+        return next;
+      });
+      onUpdate({ children: nextChildren });
+    },
+    [block, onUpdate]
+  );
+
+  const deleteLayerChild = useCallback(
+    (childId: string) => {
+      const parentChildren = ((block as unknown) as { children?: Block[] }).children ?? [];
+      onUpdate({ children: parentChildren.filter((c) => c.id !== childId) });
+    },
+    [block, onUpdate]
+  );
+
+  const clampRange = useCallback((n: number, min: number, max: number) => Math.max(min, Math.min(max, n)), []);
+
+  const clientToParentPct = useCallback(
+    (clientX: number, clientY: number): { xPct: number; yPct: number } | null => {
+      const el = overlayRef.current;
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      return {
+        xPct: clampPct(((clientX - rect.left) / rect.width) * 100),
+        yPct: clampPct(((clientY - rect.top) / rect.height) * 100),
+      };
+    },
+    [clampPct]
+  );
+
+  const handleOverlayPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const resizing = resizingLayerRef.current;
+      if (resizing && resizing.pointerId === e.pointerId) {
+        const { overlayRect, startClientX, startClientY, startX, startY, startW, startH, corner } = resizing;
+        if (overlayRect.width <= 0 || overlayRect.height <= 0) return;
+
+        const dxPct = ((e.clientX - startClientX) / overlayRect.width) * 100;
+        const dyPct = ((e.clientY - startClientY) / overlayRect.height) * 100;
+
+        const minW = 2;
+        const minH = 2;
+
+        const fixedRight = startX + startW;
+        const fixedBottom = startY + startH;
+
+        let xPct = startX;
+        let yPct = startY;
+        let wPct = startW;
+        let hPct = startH;
+
+        switch (corner) {
+          case 'tl': {
+            const wRaw = startW - dxPct;
+            const hRaw = startH - dyPct;
+            wPct = clampRange(wRaw, minW, fixedRight);
+            hPct = clampRange(hRaw, minH, fixedBottom);
+            xPct = fixedRight - wPct;
+            yPct = fixedBottom - hPct;
+            break;
+          }
+          case 'tr': {
+            const wRaw = startW + dxPct;
+            const hRaw = startH - dyPct;
+            wPct = clampRange(wRaw, minW, 100 - startX);
+            hPct = clampRange(hRaw, minH, fixedBottom);
+            xPct = startX;
+            yPct = fixedBottom - hPct;
+            break;
+          }
+          case 'bl': {
+            const wRaw = startW - dxPct;
+            const hRaw = startH + dyPct;
+            wPct = clampRange(wRaw, minW, fixedRight);
+            hPct = clampRange(hRaw, minH, 100 - startY);
+            xPct = fixedRight - wPct;
+            yPct = startY;
+            break;
+          }
+          case 'br': {
+            const wRaw = startW + dxPct;
+            const hRaw = startH + dyPct;
+            wPct = clampRange(wRaw, minW, 100 - startX);
+            hPct = clampRange(hRaw, minH, 100 - startY);
+            xPct = startX;
+            yPct = startY;
+            break;
+          }
+          default:
+            break;
+        }
+
+        const heightPx = (hPct / 100) * overlayRect.height;
+        const newLayoutH = Math.max(1, Math.round(heightPx / 40));
+        updateChildLayerLayout(resizing.childId, { xPct, yPct, wPct, hPct }, { h: newLayoutH });
+        return;
+      }
+
+      const dragging = draggingLayerRef.current;
+      if (!dragging) return;
+      if (dragging.pointerId !== e.pointerId) return;
+      const next = clientToParentPct(e.clientX, e.clientY);
+      if (!next) return;
+      const maxX = 100 - dragging.wPct;
+      const maxY = 100 - dragging.hPct;
+      const xPct = clampRange(next.xPct + dragging.offsetXPct, 0, maxX);
+      const yPct = clampRange(next.yPct + dragging.offsetYPct, 0, maxY);
+      updateChildLayerLayout(dragging.childId, { xPct, yPct });
+    },
+    [clientToParentPct, clampRange, updateChildLayerLayout]
+  );
+
+  const handleOverlayPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const dragging = draggingLayerRef.current;
+      const resizing = resizingLayerRef.current;
+      const endedDrag = !!(dragging && dragging.pointerId === e.pointerId);
+      const endedResize = !!(resizing && resizing.pointerId === e.pointerId);
+      if (endedDrag) draggingLayerRef.current = null;
+      if (endedResize) resizingLayerRef.current = null;
+      if (endedDrag || endedResize) onHistoryTransactionEnd?.();
+    },
+    [onHistoryTransactionEnd]
+  );
+
+  const handleOverlayDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!onInsertChild) return;
+      const dt = e.dataTransfer;
+      const types = dt?.types ? Array.from(dt.types) : [];
+      if (!types.includes(BLOCK_DRAG_TYPE)) return;
+      e.preventDefault(); // allow drop
+      dt!.dropEffect = 'copy';
+    },
+    [onInsertChild]
+  );
+
+  const handleOverlayDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!onInsertChild) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const dt = e.dataTransfer;
+      const types = dt?.types ? Array.from(dt.types) : [];
+      if (!types.includes(BLOCK_DRAG_TYPE)) return;
+      const rawType = dt.getData(BLOCK_DRAG_TYPE);
+      if (!rawType) return;
+      const next = clientToParentPct(e.clientX, e.clientY);
+      if (!next) return;
+      onInsertChild(block.id, rawType as BlockType, next.xPct, next.yPct);
+    },
+    [clientToParentPct, onInsertChild]
+  );
 
   const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
     'core/paragraph',
@@ -464,7 +718,7 @@ export function BlockEditor({
       }
 
       case 'core/custom':
-        return <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />;
+        return <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />;
 
       case 'core/form': {
         if (isInnerBlocksBlock(block) && block.innerBlocks) {
@@ -477,11 +731,16 @@ export function BlockEditor({
                     key={f.id}
                     className={`block-form-field-wrap ${isNestedSelected?.(f.id) ? 'selected' : ''}`}
                     onClick={(e) => { e.stopPropagation(); onSelectNestedBlock?.(f.id); }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onRequestContextMenu?.(f.id, e.clientX, e.clientY);
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectNestedBlock?.(f.id); } }}
                   >
-                    <BlockRenderer block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+                    <BlockRenderer block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />
                   </div>
                 ))}
                 <div className="block-form-drop-hint">Drop fields from Form section</div>
@@ -717,6 +976,9 @@ export function BlockEditor({
   /** Height in px from layout – applied to block-main so sidebar Height = actual block height */
   const layout = attrs.layout as { h?: number } | undefined;
   const layoutHeightPx = (layout?.h ?? 2) * 40;
+  const blockMainStyle = isLayerChild
+    ? { height: '100%', minHeight: '100%' }
+    : { height: layoutHeightPx, minHeight: layoutHeightPx };
 
   /** Builder.io-style: canvas always shows pure preview; all editing in sidebar. */
   const renderCanvasContent = () => {
@@ -734,18 +996,26 @@ export function BlockEditor({
       );
       return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
     }
-    const content = <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />;
+    const content = <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />;
     return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
   };
 
+  const layerChildren = (((block as unknown) as { children?: Block[] }).children ?? []) as Block[];
+  const shouldRenderLayerOverlay = layerChildren.length > 0 || !!onInsertChild;
+
   return (
     <div
-      className={`block-wrap ${isSelected ? 'selected' : ''} ${isHover ? 'is-hover' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`block-wrap ${isSelected ? 'selected' : ''} ${isHover ? 'is-hover' : ''} ${isDragging ? 'is-dragging' : ''} ${isLayerChild ? 'is-layer-child' : ''}`}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onRequestContextMenu?.(block.id, e.clientX, e.clientY);
       }}
       onDragEnd={onDragEnd}
     >
@@ -760,7 +1030,7 @@ export function BlockEditor({
               <BlockDragHandle gridHandle />
             </div>
           )}
-        <div className="block-main" style={{ height: layoutHeightPx, minHeight: layoutHeightPx }}>
+        <div className="block-main" style={blockMainStyle}>
           {showToolbarInCanvas && (
             <div className={`block-toolbar block-toolbar-minimal ${isSelected ? 'block-toolbar-selected' : ''}`}>
               <div
@@ -807,6 +1077,210 @@ export function BlockEditor({
           <div className="block-content">
             {renderCanvasContent()}
           </div>
+          {shouldRenderLayerOverlay && (
+            <div
+              ref={overlayRef}
+              className="block-layer-overlay"
+              onDragOver={handleOverlayDragOver}
+              onDrop={handleOverlayDrop}
+              onPointerMove={handleOverlayPointerMove}
+              onPointerUp={handleOverlayPointerUp}
+              onClick={(e) => {
+                if (e.target !== e.currentTarget) return;
+                e.stopPropagation();
+                onSelect();
+              }}
+            >
+              {layerChildren.map((child, idx) => {
+                const layerLayout = (child.attributes as unknown as {
+                  layerLayout?: { xPct?: number; yPct?: number; wPct?: number; hPct?: number };
+                })?.layerLayout;
+
+                const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
+                const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
+                const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
+                const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                const childSelected = !!isNestedSelected?.(child.id);
+                return (
+                  <div
+                    key={child.id}
+                    className={`block-layer-child ${childSelected ? 'selected' : ''}`}
+                    style={{
+                      left: `${xPct}%`,
+                      top: `${yPct}%`,
+                      width: `${wPct}%`,
+                      height: `${hPct}%`,
+                      zIndex: 10 + idx,
+                    }}
+                    onClick={(e) => {
+                      // Prevent selecting the parent when interacting with the layer.
+                      e.stopPropagation();
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (!childSelected) {
+                        onSelectNestedBlock?.(child.id);
+                        return;
+                      }
+                      onHistoryTransactionStart?.();
+
+                      const pointerPct = clientToParentPct(e.clientX, e.clientY);
+                      if (!pointerPct) return;
+
+                      draggingLayerRef.current = {
+                        childId: child.id,
+                        pointerId: e.pointerId,
+                        offsetXPct: xPct - pointerPct.xPct,
+                        offsetYPct: yPct - pointerPct.yPct,
+                        wPct,
+                        hPct,
+                      };
+
+                      try {
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  >
+                    {childSelected && (
+                      <>
+                        <div
+                          className="block-layer-resize-handle block-layer-resize-handle-tl"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const el = overlayRef.current;
+                            if (!el) return;
+                            onHistoryTransactionStart?.();
+                            const overlayRect = el.getBoundingClientRect();
+                            resizingLayerRef.current = {
+                              childId: child.id,
+                              pointerId: e.pointerId,
+                              corner: 'tl',
+                              overlayRect,
+                              startClientX: e.clientX,
+                              startClientY: e.clientY,
+                              startX: xPct,
+                              startY: yPct,
+                              startW: wPct,
+                              startH: hPct,
+                            };
+                            try {
+                              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                        />
+                        <div
+                          className="block-layer-resize-handle block-layer-resize-handle-tr"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const el = overlayRef.current;
+                            if (!el) return;
+                            onHistoryTransactionStart?.();
+                            const overlayRect = el.getBoundingClientRect();
+                            resizingLayerRef.current = {
+                              childId: child.id,
+                              pointerId: e.pointerId,
+                              corner: 'tr',
+                              overlayRect,
+                              startClientX: e.clientX,
+                              startClientY: e.clientY,
+                              startX: xPct,
+                              startY: yPct,
+                              startW: wPct,
+                              startH: hPct,
+                            };
+                            try {
+                              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                        />
+                        <div
+                          className="block-layer-resize-handle block-layer-resize-handle-bl"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const el = overlayRef.current;
+                            if (!el) return;
+                            onHistoryTransactionStart?.();
+                            const overlayRect = el.getBoundingClientRect();
+                            resizingLayerRef.current = {
+                              childId: child.id,
+                              pointerId: e.pointerId,
+                              corner: 'bl',
+                              overlayRect,
+                              startClientX: e.clientX,
+                              startClientY: e.clientY,
+                              startX: xPct,
+                              startY: yPct,
+                              startW: wPct,
+                              startH: hPct,
+                            };
+                            try {
+                              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                        />
+                        <div
+                          className="block-layer-resize-handle block-layer-resize-handle-br"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const el = overlayRef.current;
+                            if (!el) return;
+                            onHistoryTransactionStart?.();
+                            const overlayRect = el.getBoundingClientRect();
+                            resizingLayerRef.current = {
+                              childId: child.id,
+                              pointerId: e.pointerId,
+                              corner: 'br',
+                              overlayRect,
+                              startClientX: e.clientX,
+                              startClientY: e.clientY,
+                              startX: xPct,
+                              startY: yPct,
+                              startW: wPct,
+                              startH: hPct,
+                            };
+                            try {
+                              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                        />
+                      </>
+                    )}
+                    <BlockEditor
+                      block={child}
+                      isSelected={childSelected}
+                      onSelect={() => onSelectNestedBlock?.(child.id)}
+                      onUpdate={(attrs) => updateLayerChild(child.id, attrs)}
+                      onDelete={() => deleteLayerChild(child.id)}
+                      onRequestContextMenu={onRequestContextMenu}
+                      onSelectNestedBlock={onSelectNestedBlock}
+                      isNestedSelected={isNestedSelected}
+                      toolbarInSidebar
+                      useStorefrontPreview
+                      isLayerChild
+                      apiBaseUrl={apiBaseUrl}
+                      useDemoData={useDemoData}
+                      onInsertChild={onInsertChild}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

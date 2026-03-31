@@ -68,7 +68,13 @@
 .app-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 .btn {
@@ -78,6 +84,28 @@
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.15s ease;
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.btn-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btn-ghost {
@@ -413,6 +441,77 @@
   background: var(--surface-hover);
   border-radius: var(--radius-sm);
   line-height: 1.4;
+}
+
+.layers-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.layers-tree-item {
+  margin: 0;
+}
+
+.layers-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.85rem;
+  border-radius: var(--radius-sm);
+  margin-right: 0.5rem;
+}
+
+.layers-tree-row:hover {
+  background: var(--surface-hover);
+}
+
+.layers-tree-row.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.layers-tree-toggle,
+.layers-tree-toggle-placeholder {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  flex: 0 0 1.5rem;
+}
+
+.layers-tree-toggle {
+  cursor: pointer;
+}
+
+.layers-tree-toggle:hover {
+  color: var(--text);
+}
+
+.layers-tree-toggle svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.layers-tree-select {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  padding: 0.2rem 0;
+  text-align: left;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.layers-tree-row.active .layers-tree-select {
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* Right sidebar: collapsible sections (Builder.io-style) */
@@ -1889,7 +1988,7 @@
 .builder-preview-footer-wrap {
   margin-top: 3rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+  /* border-top: 1px solid var(--border); */
 }
 
 .builder-preview-header,
@@ -2086,6 +2185,55 @@
   min-width: 220px;
 }
 
+.block-context-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.block-context-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.25rem 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.5rem;
+}
+
+.block-context-menu-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.block-context-menu-hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.block-context-menu-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.block-context-menu .toolbar-btn {
+  width: 100%;
+  text-align: left;
+}
+
 .header-nav-pages {
   margin-top: 1rem;
   padding-top: 1rem;
@@ -2128,7 +2276,7 @@
 .canvas > .builder-preview-footer-wrap {
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+  /* border-top: 1px solid var(--border); */
   flex-shrink: 0;
 }
 
@@ -2687,6 +2835,23 @@
   position: relative;
 }
 
+.block-wrap.is-layer-child {
+  margin: 0;
+  padding: 0;
+  border: 1px dashed transparent;
+  border-radius: 0;
+  height: 100%;
+}
+
+.block-wrap.is-layer-child .block-inner,
+.block-wrap.is-layer-child .block-main {
+  height: 100%;
+}
+
+.block-wrap.is-layer-child .block-content {
+  height: 100%;
+}
+
 /* Hover: soft highlight outline + controls visible */
 .block-wrap:hover,
 .block-wrap.is-hover {
@@ -2698,6 +2863,56 @@
   border: 2px solid var(--accent);
   box-shadow: 0 0 0 2px var(--accent-muted);
   z-index: 2;
+}
+
+.block-wrap.is-layer-child.selected {
+  border-style: dashed;
+}
+
+.block-layer-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.block-layer-child {
+  position: absolute;
+  overflow: visible;
+}
+
+.block-layer-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--accent);
+  border: 1px solid var(--surface);
+  z-index: 5;
+}
+
+.block-layer-resize-handle-tl {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.block-layer-resize-handle-tr {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.block-layer-resize-handle-bl {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.block-layer-resize-handle-br {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
 }
 
 .block-toolbar {
@@ -2953,7 +3168,7 @@
 
 .toolbar-btn {
   padding: 0.5rem 0.875rem;
-  background: var(--surface-hover);
+  /* background: var(--surface-hover); */
   border: none;
   border-radius: var(--radius-md);
   color: var(--text-secondary);

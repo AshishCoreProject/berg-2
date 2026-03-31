@@ -59,15 +59,15 @@ body {
   min-height: 100vh;
 }
 
-a {
+/* a {
   color: var(--accent);
   text-decoration: none;
-}
+} */
 
-a:hover {
+/* a:hover {
   color: var(--accent);
   text-decoration: underline;
-}
+} */
 
 button {
   font-family: inherit;

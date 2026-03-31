@@ -10,6 +10,13 @@ export interface BaseBlock {
     id: string;
     type: BlockType;
     attributes?: Record<string, unknown>;
+    /**
+     * Optional layer-style children (Figma-like). When present, builder can render
+     * them as absolutely-positioned overlays inside this block.
+     *
+     * Note: structural nesting uses `innerBlocks` (e.g. columns/forms) and is handled separately.
+     */
+    children?: Block[];
 }
 /** Blocks that can contain other blocks (e.g. columns). */
 export interface InnerBlocksBlock extends BaseBlock {
