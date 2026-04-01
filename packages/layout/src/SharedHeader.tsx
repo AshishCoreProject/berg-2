@@ -71,6 +71,79 @@ export function SharedHeader({
       ? `${cls.navDrawerLink} ${cls.navDrawerLinkActive}`.trim()
       : cls.navDrawerLink;
 
+  const logoUrl = headerStyle?.logoUrl;
+  const showTitle = headerStyle?.showTitle !== false;
+  const titlePosition = headerStyle?.titlePosition ?? "right";
+  const logoTextGap = headerStyle?.logoTextGap ?? "0.125rem";
+  const logoWidthPx = headerStyle?.logoWidthPx;
+  const logoHeightPx = headerStyle?.logoHeightPx;
+  const brandTextStyle = headerStyle?.color
+    ? ({ color: headerStyle.color } as React.CSSProperties)
+    : undefined;
+
+  const logoImageStyle: React.CSSProperties = {
+    ...(logoWidthPx ? { width: `${logoWidthPx}px` } : {}),
+    ...(logoHeightPx ? { height: `${logoHeightPx}px` } : {}),
+    ...(!logoWidthPx && !logoHeightPx ? { maxHeight: 32, width: "auto" } : {}),
+  };
+
+  const logoImage = logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={siteTitle}
+      className={`${cls.logo}-image`}
+      style={logoImageStyle}
+    />
+  ) : null;
+
+  const logoText = showTitle ? (
+    <span className={`${cls.logo}-text`} style={brandTextStyle}>
+      {siteTitle}
+    </span>
+  ) : null;
+
+  let logoContent: React.ReactNode;
+
+  if (!logoImage) {
+    // No logo image configured – fall back to text only.
+    logoContent = logoText ?? siteTitle;
+  } else if (!logoText) {
+    // Logo only, no text.
+    logoContent = logoImage;
+  } else if (titlePosition === "above" || titlePosition === "below") {
+    const items =
+      titlePosition === "above"
+        ? [logoText, logoImage]
+        : [logoImage, logoText];
+    logoContent = (
+      <span
+        className={`${cls.logo}-stack`}
+        style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: logoTextGap,
+        }}
+      >
+        {items.map((item, idx) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <span key={idx}>{item}</span>
+        ))}
+      </span>
+    );
+  } else {
+    // Default: title to the right of the logo.
+    logoContent = (
+      <span
+        className={`${cls.logo}-inline`}
+        style={{ display: "inline-flex", alignItems: "center", gap: logoTextGap }}
+      >
+        {logoImage}
+        {logoText}
+      </span>
+    );
+  }
+
   return (
     <header
       className={cls.root}
@@ -109,7 +182,7 @@ export function SharedHeader({
             onClick={(e) => navTo(e, "/")}
             style={linkCss.color ? linkCss : undefined}
           >
-            {siteTitle}
+            {logoContent}
           </a>
           {!isMobile && (
             <nav className={cls.nav} aria-label="Main">

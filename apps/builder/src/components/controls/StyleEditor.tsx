@@ -7,6 +7,13 @@ export interface StyleValues {
   color?: string;
   fontFamily?: string;
   linkColor?: string;
+  footerLinksColor?: string;
+  logoUrl?: string;
+  showTitle?: boolean;
+  titlePosition?: "right" | "below" | "above";
+  logoTextGap?: string;
+  logoWidthPx?: number;
+  logoHeightPx?: number;
   borderRadius?: string;
   padding?: string;
 }
@@ -15,20 +22,28 @@ interface Props {
   title: string;
   values: StyleValues;
   onChange: (next: StyleValues) => void;
-  variant: 'header' | 'footer' | 'button';
+  variant: "header" | "footer" | "button";
 }
 
 const FONT_OPTIONS = [
-  { value: '', label: 'Default' },
-  { value: 'Georgia, "Times New Roman", serif', label: 'Serif' },
-  { value: 'system-ui, -apple-system, sans-serif', label: 'Sans' },
-  { value: '"Segoe UI", system-ui, sans-serif', label: 'Segoe UI' },
-  { value: 'monospace', label: 'Monospace' },
+  { value: "", label: "Default" },
+  { value: 'Georgia, "Times New Roman", serif', label: "Serif" },
+  { value: "system-ui, -apple-system, sans-serif", label: "Sans" },
+  { value: '"Segoe UI", system-ui, sans-serif', label: "Segoe UI" },
+  { value: "monospace", label: "Monospace" },
 ];
 
 export function StyleEditor({ title, values, onChange, variant }: Props) {
   const set = (key: keyof StyleValues, value: string | undefined) => {
     onChange({ ...values, [key]: value || undefined });
+  };
+
+  const setBoolean = (key: keyof StyleValues, value: boolean) => {
+    onChange({ ...values, [key]: value });
+  };
+
+  const setNumber = (key: keyof StyleValues, value: number | undefined) => {
+    onChange({ ...values, [key]: value });
   };
 
   return (
@@ -39,32 +54,34 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
         <div className="style-editor-color">
           <input
             type="color"
-            value={values.backgroundColor || '#1a1a1a'}
-            onChange={(e) => set('backgroundColor', e.target.value)}
+            value={values.backgroundColor || "#1a1a1a"}
+            onChange={(e) => set("backgroundColor", e.target.value)}
             title="Background color"
           />
           <input
             type="text"
-            value={values.backgroundColor ?? ''}
-            onChange={(e) => set('backgroundColor', e.target.value.trim() || undefined)}
+            value={values.backgroundColor ?? ""}
+            onChange={(e) =>
+              set("backgroundColor", e.target.value.trim() || undefined)
+            }
             placeholder="#1a1a1a"
             className="style-hex"
           />
         </div>
       </label>
       <label className="style-editor-row">
-        <span>Text color</span>
+        <span>Brand Color</span>
         <div className="style-editor-color">
           <input
             type="color"
-            value={values.color || '#ffffff'}
-            onChange={(e) => set('color', e.target.value)}
+            value={values.color || "#ffffff"}
+            onChange={(e) => set("color", e.target.value)}
             title="Text color"
           />
           <input
             type="text"
-            value={values.color ?? ''}
-            onChange={(e) => set('color', e.target.value.trim() || undefined)}
+            value={values.color ?? ""}
+            onChange={(e) => set("color", e.target.value.trim() || undefined)}
             placeholder="#ffffff"
             className="style-hex"
           />
@@ -73,42 +90,239 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
       <label className="style-editor-row">
         <span>Font</span>
         <select
-          value={values.fontFamily ?? ''}
-          onChange={(e) => set('fontFamily', e.target.value || undefined)}
+          value={values.fontFamily ?? ""}
+          onChange={(e) => set("fontFamily", e.target.value || undefined)}
         >
           {FONT_OPTIONS.map((opt) => (
-            <option key={opt.value || 'default'} value={opt.value}>{opt.label}</option>
+            <option key={opt.value || "default"} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
       </label>
-      {variant !== 'button' && (
+      {variant !== "button" && (
         <label className="style-editor-row">
-          <span>Link color</span>
+          <span>{variant === "footer" ? "Link color (fallback)" : "Link color"}</span>
           <div className="style-editor-color">
             <input
               type="color"
-              value={values.linkColor || '#94a3b8'}
-              onChange={(e) => set('linkColor', e.target.value)}
+              value={values.linkColor || "#94a3b8"}
+              onChange={(e) => set("linkColor", e.target.value)}
               title="Link color"
             />
             <input
               type="text"
-              value={values.linkColor ?? ''}
-              onChange={(e) => set('linkColor', e.target.value.trim() || undefined)}
+              value={values.linkColor ?? ""}
+              onChange={(e) =>
+                set("linkColor", e.target.value.trim() || undefined)
+              }
               placeholder="#94a3b8"
               className="style-hex"
             />
           </div>
         </label>
       )}
-      {variant === 'button' && (
+      {variant === "footer" && (
+        <label className="style-editor-row">
+          <span>Footer links color</span>
+          <div className="style-editor-color">
+            <input
+              type="color"
+              value={values.footerLinksColor || "#94a3b8"}
+              onChange={(e) => set("footerLinksColor", e.target.value)}
+              title="Footer links color"
+            />
+            <input
+              type="text"
+              value={values.footerLinksColor ?? ""}
+              onChange={(e) =>
+                set("footerLinksColor", e.target.value.trim() || undefined)
+              }
+              placeholder="#94a3b8"
+              className="style-hex"
+            />
+          </div>
+        </label>
+      )}
+      {variant === "header" && (
+        <>
+          <label className="style-editor-row">
+            <span>Logo image</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                fontSize: "0.75rem",
+                color: "var(--muted)",
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 17v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+                <polyline points="7 9 12 4 17 9" />
+                <line x1="12" y1="4" x2="12" y2="16" />
+              </svg>
+              <span>Upload logo from your computer</span>
+            </div>
+            <label className="file-upload">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === "string") {
+                      set("logoUrl", reader.result);
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+              <span>Upload Logo</span>
+            </label>
+          </label>
+          <label>
+            <input
+              type="url"
+              className=""
+              value={values.logoUrl ?? ""}
+              onChange={(e) =>
+                set("logoUrl", e.target.value.trim() || undefined)
+              }
+              placeholder="https://example.com/logo.png"
+            />
+          </label>
+          <label className="style-editor-row">
+            <span>Show site name</span>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <input
+                type="checkbox"
+                checked={values.showTitle !== false}
+                onChange={(e) => setBoolean("showTitle", e.target.checked)}
+              />
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                Toggle site name text
+              </span>
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Site name position</span>
+            <select
+              value={values.titlePosition ?? "right"}
+              onChange={(e) =>
+                set(
+                  "titlePosition",
+                  (e.target.value || "right") as StyleValues["titlePosition"],
+                )
+              }
+              disabled={!values.logoUrl || values.showTitle === false}
+            >
+              <option value="right">Right of logo</option>
+              <option value="below">Below logo</option>
+              <option value="above">Above logo</option>
+            </select>
+          </label>
+          <label className="style-editor-row">
+            <span>Logo/name gap</span>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (!values.logoUrl || values.showTitle === false) return;
+                  const raw = values.logoTextGap || "8px";
+                  const match = raw.match(/^(\d+(?:\.\d+)?)([a-z%]*)$/i);
+                  const current = match ? parseFloat(match[1]) : 8;
+                  const unit = match && match[2] ? match[2] : "px";
+                  const next = Math.max(0, current - 2);
+                  set("logoTextGap", `${next}${unit}`);
+                }}
+                style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem" }}
+                disabled={!values.logoUrl || values.showTitle === false}
+              >
+                –
+              </button>
+              <input
+                type="text"
+                value={values.logoTextGap ?? ""}
+                onChange={(e) =>
+                  set("logoTextGap", e.target.value.trim() || undefined)
+                }
+                placeholder="8px"
+                disabled={!values.logoUrl || values.showTitle === false}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!values.logoUrl || values.showTitle === false) return;
+                  const raw = values.logoTextGap || "8px";
+                  const match = raw.match(/^(\d+(?:\.\d+)?)([a-z%]*)$/i);
+                  const current = match ? parseFloat(match[1]) : 8;
+                  const unit = match && match[2] ? match[2] : "px";
+                  const next = current + 2;
+                  set("logoTextGap", `${next}${unit}`);
+                }}
+                style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem" }}
+                disabled={!values.logoUrl || values.showTitle === false}
+              >
+                +
+              </button>
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Logo width (px)</span>
+            <input
+              type="number"
+              min={1}
+              value={values.logoWidthPx ?? ""}
+              onChange={(e) => {
+                const next = e.target.value.trim();
+                setNumber("logoWidthPx", next ? Number(next) : undefined);
+              }}
+              placeholder="120"
+            />
+          </label>
+          <label className="style-editor-row">
+            <span>Logo height (px)</span>
+            <input
+              type="number"
+              min={1}
+              value={values.logoHeightPx ?? ""}
+              onChange={(e) => {
+                const next = e.target.value.trim();
+                setNumber("logoHeightPx", next ? Number(next) : undefined);
+              }}
+              placeholder="32"
+            />
+          </label>
+        </>
+      )}
+      {variant === "button" && (
         <>
           <label className="style-editor-row">
             <span>Border radius</span>
             <input
               type="text"
-              value={values.borderRadius ?? ''}
-              onChange={(e) => set('borderRadius', e.target.value.trim() || undefined)}
+              value={values.borderRadius ?? ""}
+              onChange={(e) =>
+                set("borderRadius", e.target.value.trim() || undefined)
+              }
               placeholder="8px"
             />
           </label>
@@ -116,8 +330,10 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
             <span>Padding</span>
             <input
               type="text"
-              value={values.padding ?? ''}
-              onChange={(e) => set('padding', e.target.value.trim() || undefined)}
+              value={values.padding ?? ""}
+              onChange={(e) =>
+                set("padding", e.target.value.trim() || undefined)
+              }
               placeholder="0.5rem 1rem"
             />
           </label>

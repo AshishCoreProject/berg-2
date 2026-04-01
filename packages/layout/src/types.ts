@@ -5,6 +5,38 @@ export type HeaderFooterStyle = {
   color?: string;
   fontFamily?: string;
   linkColor?: string;
+  /**
+   * Footer-only links color. When set, footer links prefer this over linkColor.
+   */
+  footerLinksColor?: string;
+  /**
+   * Optional brand logo image URL for the header/footer.
+   */
+  logoUrl?: string;
+  /**
+   * Whether to show the textual site title alongside the logo.
+   * Defaults to true when undefined.
+   */
+  showTitle?: boolean;
+  /**
+   * Where to place the site title relative to the logo image when both are shown.
+   * - "right": title to the right of the logo (default)
+   * - "below": title below the logo
+   * - "above": title above the logo
+   */
+  titlePosition?: 'right' | 'below' | 'above';
+  /**
+   * Spacing between logo image and logo text (for example: "8px", "0.5rem").
+   */
+  logoTextGap?: string;
+  /**
+   * Optional logo width in pixels.
+   */
+  logoWidthPx?: number;
+  /**
+   * Optional logo height in pixels.
+   */
+  logoHeightPx?: number;
 };
 
 export type ViewportMode = 'auto' | 'desktop' | 'mobile';

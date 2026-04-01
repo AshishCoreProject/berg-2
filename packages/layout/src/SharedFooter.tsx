@@ -22,19 +22,11 @@ function FooterLink({
   className: string;
 }) {
   const internal = isInternalUrl(link.url);
-  const themedFooterClasses = [
-    "site-footer-link",
-    "site-footer-cta",
-    "site-footer-bottom-link",
-  ];
-  const shouldUseInlineColor = !themedFooterClasses.some((cls) =>
-    className.includes(cls),
-  );
   return (
     <a
       href={link.url}
       className={className}
-      style={shouldUseInlineColor && linkCss.color ? linkCss : undefined}
+      style={linkCss.color ? linkCss : undefined}
       target={link.openInNewTab ? "_blank" : undefined}
       rel={link.openInNewTab ? "noopener noreferrer" : undefined}
       onClick={(e) => {
@@ -63,7 +55,10 @@ export function SharedFooter({
 }: SharedFooterProps) {
   const currentYear = new Date().getFullYear();
   const footerCss = toHeaderFooterCss(footerStyle);
-  const linkCss = toLinkCss(footerStyle);
+  const linkCss = toLinkCss({
+    ...footerStyle,
+    linkColor: footerStyle?.footerLinksColor ?? footerStyle?.linkColor,
+  });
   const isMobile = useViewportMatch(viewportMode, 900);
   const cfgRaw = footerLinks?.columns?.length
     ? footerLinks

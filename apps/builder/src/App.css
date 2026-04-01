@@ -1117,55 +1117,111 @@
   background: var(--surface-hover, rgba(255, 255, 255, 0.05));
   border-radius: var(--radius-sm);
 }
+.style-editor input[type="url"] {
+  height: 40px;
+  border: 1px solid gray;
+  border-radius: 4px;
+  padding: 0 5px;
+  width: 100%;
+  user-select: text;
+}
 
 .style-editor-title {
-  margin: 0 0 0.5rem;
-  font-size: 0.8125rem;
+  font-size: 16px;
   font-weight: 600;
+  margin-bottom: 12px;
   color: var(--text);
+}
+
+.style-editor {
+  background: var(--surface-hover, rgba(255, 255, 255, 0.05));
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #222;
+}
+
+.style-editor-row span {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .style-editor-row {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.style-editor-color input[type="color"] {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: none;
+  cursor: pointer;
 }
 
 .style-editor-row span {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.style-editor-row input[type="text"],
-.style-editor-row select {
-  padding: 0.35rem 0.5rem;
-  font-size: 0.8125rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
+  font-size: 13px;
+  color: #aaa;
 }
 
 .style-editor-color {
   display: flex;
+  gap: 8px;
   align-items: center;
-  gap: 0.35rem;
 }
 
 .style-editor-color input[type="color"] {
-  width: 2rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
   cursor: pointer;
+  background: none;
+}
+
+.style-hex {
+  flex: 1;
+}
+
+.file-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface-hover, rgba(255, 255, 255, 0.05));
+  border: 1px dashed #444;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-upload:hover {
+  /* background: #2a2a2a; */
+  border-color: #666;
 }
 
 .style-hex {
   width: 5rem;
   padding: 0.35rem 0.5rem;
   font-size: 0.75rem;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  color: #888;
+}
+.upload-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #888;
 }
 
 .accent-color-row {

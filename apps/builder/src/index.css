@@ -71,6 +71,6 @@ textarea {
 }
 
 ::selection {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--text);
+  background: #6366f1; /* highlight color */
+  color: #fff; /* text color when selected */
 }
