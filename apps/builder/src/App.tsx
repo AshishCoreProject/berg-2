@@ -1324,9 +1324,73 @@ export default function App() {
           const isNestedField = !!nested;
           const parentForm = nested?.parent ?? null;
           const nestedContainer = nested?.container ?? null;
+          const isLayerChildSelected = isNestedField && nestedContainer === 'children';
+          const layerParentSpan = 12;
+
+          const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+          const findAnyBlockById = (blocks: Block[], id: string): Block | null => {
+            for (const b of blocks) {
+              if (b.id === id) return b;
+              if (isInnerBlocksBlock(b) && Array.isArray(b.innerBlocks)) {
+                const deeper = findAnyBlockById(b.innerBlocks, id);
+                if (deeper) return deeper;
+              }
+              const anyParent = b as unknown as { children?: Block[] };
+              if (Array.isArray(anyParent.children)) {
+                const deeper = findAnyBlockById(anyParent.children, id);
+                if (deeper) return deeper;
+              }
+            }
+            return null;
+          };
+
+          const computeHeightPxById = (blockId: string): number => {
+            const found = findAnyBlockById(doc.blocks, blockId);
+            if (!found) return 40;
+
+            const parentInfo = findBlockInTree(doc.blocks, blockId);
+            if (!parentInfo) {
+              const layout = found.attributes?.layout as { h?: number } | undefined;
+              return (layout?.h ?? 2) * 40;
+            }
+
+            if (parentInfo.container === 'children') {
+              const layerLayout = found.attributes?.layerLayout as { hPct?: number } | undefined;
+              const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+              const parentHeightPx = computeHeightPxById(parentInfo.parent.id);
+              return (parentHeightPx * hPct) / 100;
+            }
+
+            const layout = found.attributes?.layout as { h?: number } | undefined;
+            return (layout?.h ?? 2) * 40;
+          };
+
+          const layerParentHeightPx = isLayerChildSelected && parentForm ? computeHeightPxById(parentForm.id) : 0;
+
           const layout = block.attributes?.layout as { w?: number; x?: number } | undefined;
-          const gridColumnSpan = (layout?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12);
-          const gridColumnStart = (layout?.x != null ? (layout.x + 1) : ((block.attributes?.gridColumnStart as number) ?? 1));
+          const topGridColumnSpan = layout?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12;
+          const topGridColumnStart = layout?.x != null ? layout.x + 1 : ((block.attributes?.gridColumnStart as number) ?? 1);
+
+          const selectedLayerLayout = isLayerChildSelected
+            ? (block.attributes?.layerLayout as { xPct?: number; yPct?: number; wPct?: number; hPct?: number } | undefined)
+            : undefined;
+
+          const layerChildWPct = typeof selectedLayerLayout?.wPct === 'number' ? selectedLayerLayout.wPct : 25;
+          const layerChildXPct = typeof selectedLayerLayout?.xPct === 'number' ? selectedLayerLayout.xPct : 0;
+
+          const SPAN_OPTIONS = [12, 6, 4, 3, 2, 1] as const;
+          const layerChildGridColumnSpan = SPAN_OPTIONS.reduce((best, span) => {
+            const pctForSpan = (span / layerParentSpan) * 100;
+            const bestPctForSpan = (best / layerParentSpan) * 100;
+            return Math.abs(pctForSpan - layerChildWPct) < Math.abs(bestPctForSpan - layerChildWPct) ? span : best;
+          }, 12 as (typeof SPAN_OPTIONS)[number]);
+
+          const rawLayerChildStart = ((layerChildXPct / 100) * layerParentSpan) + 1;
+          const layerChildGridColumnStart = clamp(Math.round(rawLayerChildStart), 1, 13 - layerChildGridColumnSpan);
+
+          const gridColumnSpan = isLayerChildSelected ? layerChildGridColumnSpan : topGridColumnSpan;
+          const gridColumnStart = isLayerChildSelected ? layerChildGridColumnStart : topGridColumnStart;
           const handleUpdate = (attrs: Record<string, unknown> & { innerBlocks?: Block[] }) => {
             if (isNestedField && parentForm && nestedContainer) {
               if (nestedContainer === 'innerBlocks') {
@@ -1422,17 +1486,35 @@ export default function App() {
                 onInsertBelow={!isNestedField ? () => insertBlock('core/paragraph', idx + 1) : undefined}
                 gridColumnSpan={gridColumnSpan}
                 gridColumnStart={gridColumnStart}
-                onGridChange={(span, start) =>
-                  handleUpdate({
-                    layout: {
-                      ...(block.attributes?.layout as object || {}),
-                      x: start - 1,
-                      w: span,
-                      h: (block.attributes?.layout as { h?: number })?.h ?? 2,
-                    },
-                    gridColumnSpan: span,
-                    gridColumnStart: start,
-                  })
+                isLayerChildSelected={isLayerChildSelected}
+                layerParentHeightPx={layerParentHeightPx}
+                layerParentSpan={layerParentSpan}
+                onGridChange={
+                  isLayerChildSelected
+                    ? (span, start) => {
+                        const layerLayout = (block.attributes?.layerLayout as Record<string, unknown> | undefined) ?? {};
+                        const wPct = (span / layerParentSpan) * 100;
+                        const xPct = ((start - 1) / layerParentSpan) * 100;
+                        const xPctClamped = Math.min(xPct, 100 - wPct);
+                        handleUpdate({
+                          layerLayout: {
+                            ...layerLayout,
+                            xPct: xPctClamped,
+                            wPct,
+                          },
+                        });
+                      }
+                    : (span, start) =>
+                        handleUpdate({
+                          layout: {
+                            ...(block.attributes?.layout as object || {}),
+                            x: start - 1,
+                            w: span,
+                            h: (block.attributes?.layout as { h?: number })?.h ?? 2,
+                          },
+                          gridColumnSpan: span,
+                          gridColumnStart: start,
+                        })
                 }
                 />
               </aside>

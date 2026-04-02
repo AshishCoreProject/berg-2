@@ -380,9 +380,26 @@ export function BlockEditor({
   const renderContent = () => {
     switch (block.type) {
       case 'core/box':
-        return (
-          <div className="block block-box block-box-preview" style={{ minHeight: '100%', width: '100%', boxSizing: 'border-box' }} />
-        );
+        {
+          const bg = attrs.backgroundColor as string | undefined;
+          const radius = attrs.borderRadius as string | undefined;
+          const pad = attrs.padding as string | undefined;
+          const boxShadow = attrs.boxShadow as string | undefined;
+          const border = attrs.border as string | undefined;
+          const style: React.CSSProperties = {
+            minHeight: '100%',
+            width: '100%',
+            boxSizing: 'border-box',
+            ...(bg ? { backgroundColor: bg } : {}),
+            ...(radius ? { borderRadius: radius } : {}),
+            ...(pad ? { padding: pad } : {}),
+            ...(boxShadow ? { boxShadow } : {}),
+            ...(border ? { border } : {}),
+          };
+          return (
+            <div className="block block-box block-box-preview" style={style} />
+          );
+        }
 
       case 'core/paragraph':
         return (
@@ -1004,6 +1021,11 @@ export function BlockEditor({
   const renderCanvasContent = () => {
     const fullBleed = !!(attrs.fullBleed as boolean);
     if (!useStorefrontPreview) {
+      return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
+    }
+    // Box is a purely-visual container in the builder; render the local preview so
+    // background/border/shadow edits reflect immediately without relying on package builds.
+    if (block.type === 'core/box') {
       return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
     }
     const isEmpty = (block.type === 'core/paragraph' || block.type === 'core/heading') &&

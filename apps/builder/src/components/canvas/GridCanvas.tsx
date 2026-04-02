@@ -114,15 +114,16 @@ export function GridCanvas({
     [onDropBlock]
   );
 
-  const handleDropDragOver = useCallback(
-    (e: React.DragEvent) => {
-      if (!e.dataTransfer?.types.includes(BLOCK_DRAG_TYPE)) return undefined;
-      const type = e.dataTransfer.getData(BLOCK_DRAG_TYPE) || 'core/paragraph';
-      const h = getDefaultHeightForType(type);
-      return { w: 12, h };
-    },
-    []
-  );
+  const handleDropDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer?.types.includes(BLOCK_DRAG_TYPE)) return undefined;
+    const t = e.target;
+    if (t instanceof Element && t.closest('.block-layer-overlay')) {
+      return false;
+    }
+    const type = e.dataTransfer.getData(BLOCK_DRAG_TYPE) || 'core/paragraph';
+    const h = getDefaultHeightForType(type);
+    return { w: 12, h };
+  }, []);
 
   if (blocks.length === 0) {
     return null;

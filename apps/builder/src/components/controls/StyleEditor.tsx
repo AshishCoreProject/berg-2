@@ -16,13 +16,15 @@ export interface StyleValues {
   logoHeightPx?: number;
   borderRadius?: string;
   padding?: string;
+  boxShadow?: string;
+  border?: string;
 }
 
 interface Props {
   title: string;
   values: StyleValues;
   onChange: (next: StyleValues) => void;
-  variant: "header" | "footer" | "button";
+  variant: "header" | "footer" | "button" | "box";
 }
 
 const FONT_OPTIONS = [
@@ -69,81 +71,87 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
           />
         </div>
       </label>
-      <label className="style-editor-row">
-        <span>Brand Color</span>
-        <div className="style-editor-color">
-          <input
-            type="color"
-            value={values.color || "#ffffff"}
-            onChange={(e) => set("color", e.target.value)}
-            title="Text color"
-          />
-          <input
-            type="text"
-            value={values.color ?? ""}
-            onChange={(e) => set("color", e.target.value.trim() || undefined)}
-            placeholder="#ffffff"
-            className="style-hex"
-          />
-        </div>
-      </label>
-      <label className="style-editor-row">
-        <span>Font</span>
-        <select
-          value={values.fontFamily ?? ""}
-          onChange={(e) => set("fontFamily", e.target.value || undefined)}
-        >
-          {FONT_OPTIONS.map((opt) => (
-            <option key={opt.value || "default"} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {variant !== "button" && (
-        <label className="style-editor-row">
-          <span>{variant === "footer" ? "Link color (fallback)" : "Link color"}</span>
-          <div className="style-editor-color">
-            <input
-              type="color"
-              value={values.linkColor || "#94a3b8"}
-              onChange={(e) => set("linkColor", e.target.value)}
-              title="Link color"
-            />
-            <input
-              type="text"
-              value={values.linkColor ?? ""}
-              onChange={(e) =>
-                set("linkColor", e.target.value.trim() || undefined)
-              }
-              placeholder="#94a3b8"
-              className="style-hex"
-            />
-          </div>
-        </label>
+
+      {variant !== "box" && (
+        <>
+          <label className="style-editor-row">
+            <span>Brand Color</span>
+            <div className="style-editor-color">
+              <input
+                type="color"
+                value={values.color || "#ffffff"}
+                onChange={(e) => set("color", e.target.value)}
+                title="Text color"
+              />
+              <input
+                type="text"
+                value={values.color ?? ""}
+                onChange={(e) => set("color", e.target.value.trim() || undefined)}
+                placeholder="#ffffff"
+                className="style-hex"
+              />
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Font</span>
+            <select
+              value={values.fontFamily ?? ""}
+              onChange={(e) => set("fontFamily", e.target.value || undefined)}
+            >
+              {FONT_OPTIONS.map((opt) => (
+                <option key={opt.value || "default"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {variant !== "button" && (
+            <label className="style-editor-row">
+              <span>{variant === "footer" ? "Link color (fallback)" : "Link color"}</span>
+              <div className="style-editor-color">
+                <input
+                  type="color"
+                  value={values.linkColor || "#94a3b8"}
+                  onChange={(e) => set("linkColor", e.target.value)}
+                  title="Link color"
+                />
+                <input
+                  type="text"
+                  value={values.linkColor ?? ""}
+                  onChange={(e) =>
+                    set("linkColor", e.target.value.trim() || undefined)
+                  }
+                  placeholder="#94a3b8"
+                  className="style-hex"
+                />
+              </div>
+            </label>
+          )}
+          {variant === "footer" && (
+            <label className="style-editor-row">
+              <span>Footer links color</span>
+              <div className="style-editor-color">
+                <input
+                  type="color"
+                  value={values.footerLinksColor || "#94a3b8"}
+                  onChange={(e) => set("footerLinksColor", e.target.value)}
+                  title="Footer links color"
+                />
+                <input
+                  type="text"
+                  value={values.footerLinksColor ?? ""}
+                  onChange={(e) =>
+                    set("footerLinksColor", e.target.value.trim() || undefined)
+                  }
+                  placeholder="#94a3b8"
+                  className="style-hex"
+                />
+              </div>
+            </label>
+          )}
+        </>
       )}
-      {variant === "footer" && (
-        <label className="style-editor-row">
-          <span>Footer links color</span>
-          <div className="style-editor-color">
-            <input
-              type="color"
-              value={values.footerLinksColor || "#94a3b8"}
-              onChange={(e) => set("footerLinksColor", e.target.value)}
-              title="Footer links color"
-            />
-            <input
-              type="text"
-              value={values.footerLinksColor ?? ""}
-              onChange={(e) =>
-                set("footerLinksColor", e.target.value.trim() || undefined)
-              }
-              placeholder="#94a3b8"
-              className="style-hex"
-            />
-          </div>
-        </label>
-      )}
+
       {variant === "header" && (
         <>
           <label className="style-editor-row">
@@ -335,6 +343,49 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
                 set("padding", e.target.value.trim() || undefined)
               }
               placeholder="0.5rem 1rem"
+            />
+          </label>
+        </>
+      )}
+
+      {variant === "box" && (
+        <>
+          <label className="style-editor-row">
+            <span>Border</span>
+            <input
+              type="text"
+              value={values.border ?? ""}
+              onChange={(e) => set("border", e.target.value.trim() || undefined)}
+              placeholder="1px solid #e2e8f0"
+            />
+          </label>
+          <label className="style-editor-row">
+            <span>Shadow</span>
+            <input
+              type="text"
+              value={values.boxShadow ?? ""}
+              onChange={(e) => set("boxShadow", e.target.value.trim() || undefined)}
+              placeholder="0 8px 24px rgba(0,0,0,.12)"
+            />
+          </label>
+          <label className="style-editor-row">
+            <span>Border radius</span>
+            <input
+              type="text"
+              value={values.borderRadius ?? ""}
+              onChange={(e) =>
+                set("borderRadius", e.target.value.trim() || undefined)
+              }
+              placeholder="12px"
+            />
+          </label>
+          <label className="style-editor-row">
+            <span>Padding</span>
+            <input
+              type="text"
+              value={values.padding ?? ""}
+              onChange={(e) => set("padding", e.target.value.trim() || undefined)}
+              placeholder="24px"
             />
           </label>
         </>

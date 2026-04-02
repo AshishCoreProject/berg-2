@@ -81,12 +81,30 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
     const wrapWithSpacing = (el) => {
         if (Object.keys(spacingStyle).length === 0)
             return el;
-        return (_jsx("div", { style: { ...spacingStyle, width: '100%', boxSizing: 'border-box' }, children: el }));
+        return (_jsx("div", { style: { ...spacingStyle, width: '100%', height: '100%', boxSizing: 'border-box' }, children: el }));
     };
     let content = null;
     switch (block.type) {
         case 'core/box': {
-            content = (_jsx("div", { className: "block block-box", style: { minHeight: '100%', width: '100%', boxSizing: 'border-box' }, children: _jsx("div", { className: "block-box-inner" }) }));
+            const layout = attrs.layout;
+            const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
+            const style = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
+            const bg = attrs.backgroundColor;
+            const radius = attrs.borderRadius;
+            const pad = attrs.padding;
+            const boxShadow = attrs.boxShadow;
+            const border = attrs.border;
+            if (bg)
+                style.backgroundColor = bg;
+            if (radius)
+                style.borderRadius = radius;
+            if (pad)
+                style.padding = pad;
+            if (boxShadow)
+                style.boxShadow = boxShadow;
+            if (border)
+                style.border = border;
+            content = (_jsx("div", { className: "block block-box", style: style }));
             break;
         }
         case 'core/paragraph': {

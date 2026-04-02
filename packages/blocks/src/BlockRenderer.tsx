@@ -120,7 +120,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
   const wrapWithSpacing = (el: React.ReactNode) => {
     if (Object.keys(spacingStyle).length === 0) return el;
     return (
-      <div style={{ ...spacingStyle, width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ ...spacingStyle, width: '100%', height: '100%', boxSizing: 'border-box' }}>
         {el}
       </div>
     );
@@ -130,8 +130,23 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
 
   switch (block.type) {
     case 'core/box': {
+      // On storefront, an empty Box has no intrinsic height. Use builder layout rows (40px)
+      // as a sensible default so background/border/shadow are visible.
+      const layout = attrs.layout as { h?: number } | undefined;
+      const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
+      const style: React.CSSProperties = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
+      const bg = attrs.backgroundColor as string | undefined;
+      const radius = attrs.borderRadius as string | undefined;
+      const pad = attrs.padding as string | undefined;
+      const boxShadow = attrs.boxShadow as string | undefined;
+      const border = attrs.border as string | undefined;
+      if (bg) style.backgroundColor = bg;
+      if (radius) style.borderRadius = radius;
+      if (pad) style.padding = pad;
+      if (boxShadow) style.boxShadow = boxShadow;
+      if (border) style.border = border;
       content = (
-        <div className="block block-box" style={{ minHeight: '100%', width: '100%', boxSizing: 'border-box' }} />
+        <div className="block block-box" style={style} />
       );
       break;
     }

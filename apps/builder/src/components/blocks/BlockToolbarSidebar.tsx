@@ -7,6 +7,7 @@ import { isInnerBlocksBlock, createBlockId, getBlockDefinition } from '@berg/sch
 import { TypographyControls } from '@/components/controls/TypographyControls';
 import { ButtonStyleControls } from '@/components/controls/ButtonStyleControls';
 import { TextEditor } from '@/components/controls/TextEditor';
+import { StyleEditor } from '@/components/controls/StyleEditor';
 import { CollapsibleSection } from '@/features/sidebar';
 
 interface Props {
@@ -20,6 +21,12 @@ interface Props {
   gridColumnSpan: number;
   gridColumnStart: number;
   onGridChange?: (span: number, start: number) => void;
+  /** When true, the "Layout" section edits `block.attributes.layerLayout` instead of `block.attributes.layout`. */
+  isLayerChildSelected?: boolean;
+  /** Rendered height in px for the selected layer child parent overlay. Used to convert px <-> hPct. */
+  layerParentHeightPx?: number;
+  /** Logical "column" span for the parent's overlay. Used only for mapping wPct <-> width select. */
+  layerParentSpan?: number;
 }
 
 const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
@@ -166,8 +173,12 @@ export function BlockToolbarSidebar({
   gridColumnSpan,
   gridColumnStart,
   onGridChange,
+  isLayerChildSelected = false,
+  layerParentHeightPx,
+  layerParentSpan = 12,
 }: Props) {
   const attrs = block.attributes ?? {};
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
   const hasTypography = TYPOGRAPHY_BLOCK_TYPES.includes(block.type);
   const typographyAttrs = hasTypography
     ? {
@@ -208,6 +219,30 @@ export function BlockToolbarSidebar({
       </div>
       <CollapsibleSection title="Content" defaultOpen className="sidebar-section-content-primary">
         <div className="block-toolbar block-toolbar-in-sidebar">
+        {block.type === 'core/box' && (
+          <div className="toolbar-field">
+            <StyleEditor
+              title="Box style"
+              variant="box"
+              values={{
+                backgroundColor: (attrs.backgroundColor as string) || undefined,
+                borderRadius: (attrs.borderRadius as string) || undefined,
+                padding: (attrs.padding as string) || undefined,
+                boxShadow: (attrs.boxShadow as string) || undefined,
+                border: (attrs.border as string) || undefined,
+              }}
+              onChange={(next) => {
+                onUpdate({
+                  backgroundColor: next.backgroundColor,
+                  borderRadius: next.borderRadius,
+                  padding: next.padding,
+                  boxShadow: next.boxShadow,
+                  border: next.border,
+                });
+              }}
+            />
+          </div>
+        )}
         {block.type === 'core/paragraph' && (
           <div className="toolbar-field">
             <span className="toolbar-group-label">Paragraph text</span>
@@ -1236,12 +1271,33 @@ export function BlockToolbarSidebar({
                 step={40}
                 className="toolbar-input-full"
                 value={(() => {
+                  if (isLayerChildSelected) {
+                    const layerLayout = attrs.layerLayout as { hPct?: number } | undefined;
+                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                    const parentH = layerParentHeightPx ?? 0;
+                    if (parentH <= 0) return 40;
+                    const px = Math.round((hPct / 100) * parentH);
+                    return clamp(px, 40, 800);
+                  }
+
                   const layout = attrs.layout as { h?: number } | undefined;
                   const h = layout?.h ?? 2;
                   return h * 40;
                 })()}
                 onChange={(e) => {
                   const px = Math.max(40, Math.min(800, Number(e.target.value) || 40));
+                  if (isLayerChildSelected) {
+                    const layerLayout = (attrs.layerLayout as Record<string, unknown> | undefined) ?? {};
+                    const yPct = typeof (layerLayout as { yPct?: number })?.yPct === 'number' ? (layerLayout as { yPct?: number }).yPct : 0;
+                    const parentH = layerParentHeightPx ?? 0;
+                    const minHPct = 2;
+                    const maxHPct = clamp(100 - yPct, minHPct, 100);
+                    const rawHPct = parentH > 0 ? (px / parentH) * 100 : minHPct;
+                    const hPct = clamp(rawHPct, minHPct, maxHPct);
+                    onUpdate({ layerLayout: { ...layerLayout, hPct } });
+                    return;
+                  }
+
                   const h = Math.max(1, Math.round(px / 40));
                   const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
                   onUpdate({ layout: { ...layout, h } });
