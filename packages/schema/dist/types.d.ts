@@ -4,7 +4,7 @@
  */
 export declare const SCHEMA_VERSION = 1;
 /** Block type identifiers – extend this for new blocks. */
-export type BlockType = 'core/paragraph' | 'core/heading' | 'core/image' | 'core/button' | 'core/columns' | 'core/column' | 'core/hero' | 'core/spacer' | 'core/divider' | 'core/list' | 'core/quote' | 'core/custom' | 'core/form' | 'core/form-input' | 'core/form-select' | 'core/form-textarea' | 'store/product-grid' | 'store/collection-list' | 'store/newsletter' | 'store/promo-banner' | 'store/testimonials' | 'store/trust-badges';
+export type BlockType = 'core/box' | 'core/paragraph' | 'core/heading' | 'core/image' | 'core/button' | 'core/columns' | 'core/column' | 'core/hero' | 'core/spacer' | 'core/divider' | 'core/list' | 'core/quote' | 'core/custom' | 'core/form' | 'core/form-input' | 'core/form-select' | 'core/form-textarea' | 'store/product-grid' | 'store/collection-list' | 'store/newsletter' | 'store/promo-banner' | 'store/testimonials' | 'store/trust-badges';
 /** Base block: every block has id, type, and optional attributes. */
 export interface BaseBlock {
     id: string;

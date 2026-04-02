@@ -53,6 +53,7 @@ const CATEGORIES = [
 /** Simple icon per block type for Builder.io-style visual identification */
 function BlockIcon({ type }: { type: string }) {
   const icons: Record<string, string> = {
+    'core/box': '▢',
     'core/paragraph': '¶',
     'core/heading': 'H',
     'core/list': '≡',

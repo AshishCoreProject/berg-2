@@ -38,6 +38,7 @@ export function getDefaultHeightForType(blockType: string): number {
   if (blockType === 'store/trust-badges') return 4;
   if (blockType === 'store/promo-banner') return 2;
   if (blockType === 'core/custom') return 13;
+  if (blockType === 'core/box') return 4;
   if (blockType === 'core/paragraph') return 4;
   if (blockType === 'core/heading') return 3;
   if (blockType === 'core/form') return 12;

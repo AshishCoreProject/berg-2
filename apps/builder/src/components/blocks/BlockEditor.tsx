@@ -87,6 +87,15 @@ export function BlockEditor({
 
   const attrs = block.attributes ?? {};
   const set = (key: string, value: unknown) => onUpdate({ [key]: value });
+  const isRichTextEmpty = useCallback((html: string): boolean => {
+    if (!html) return true;
+    const textOnly = html
+      .replace(/<br\s*\/?>/gi, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+    return textOnly.length === 0;
+  }, []);
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const draggingLayerRef = useRef<
@@ -370,6 +379,11 @@ export function BlockEditor({
 
   const renderContent = () => {
     switch (block.type) {
+      case 'core/box':
+        return (
+          <div className="block block-box block-box-preview" style={{ minHeight: '100%', width: '100%', boxSizing: 'border-box' }} />
+        );
+
       case 'core/paragraph':
         return (
           <div className="block block-paragraph" style={previewTextStyle()}>
@@ -378,7 +392,13 @@ export function BlockEditor({
               onChange={(html) => set('content', html)}
               placeholder="Write paragraph…"
               contentClassName="block-paragraph-inner"
-              onKeyDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key !== 'Backspace' && e.key !== 'Delete') return;
+                if (!isRichTextEmpty((attrs.content as string) ?? '')) return;
+                e.preventDefault();
+                onDelete();
+              }}
             />
           </div>
         );

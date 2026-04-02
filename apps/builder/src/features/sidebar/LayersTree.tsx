@@ -5,6 +5,7 @@ interface LayersTreeProps {
   blocks: Block[];
   selectedBlockId: string | null;
   onSelect: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 interface LayerNode {
@@ -84,7 +85,7 @@ function ChevronDownIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export function LayersTree({ blocks, selectedBlockId, onSelect }: LayersTreeProps) {
+export function LayersTree({ blocks, selectedBlockId, onSelect, onDelete }: LayersTreeProps) {
   const nodes = useMemo(() => blocks.map(buildNode), [blocks]);
 
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -127,6 +128,13 @@ export function LayersTree({ blocks, selectedBlockId, onSelect }: LayersTreeProp
             type="button"
             className="layers-tree-select"
             onClick={() => onSelect(node.id)}
+            onKeyDown={(e) => {
+              if (!onDelete) return;
+              if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(node.id);
+            }}
             title={node.label}
           >
             {node.label}

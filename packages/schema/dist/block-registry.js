@@ -3,18 +3,25 @@
  * Single source of truth for builder UI and renderer.
  */
 export const BLOCK_REGISTRY = {
+    'core/box': {
+        type: 'core/box',
+        label: 'Box',
+        category: 'text',
+        defaultAttributes: { fullBleed: false },
+        semanticTag: 'div',
+    },
     'core/paragraph': {
         type: 'core/paragraph',
         label: 'Paragraph',
         category: 'text',
-        defaultAttributes: { content: '', fontFamily: '', textColor: '', fontSize: '', fontWeight: '', fontStyle: '', fullBleed: false },
+        defaultAttributes: { content: '', fontFamily: '', textColor: '', fontSize: '', fontWeight: '', fontStyle: '', textAlign: 'left', verticalAlign: 'center', fullBleed: false },
         semanticTag: 'p',
     },
     'core/heading': {
         type: 'core/heading',
         label: 'Heading',
         category: 'text',
-        defaultAttributes: { content: '', level: 2, fontFamily: '', textColor: '', fontSize: '', fontWeight: '', fontStyle: '', fullBleed: false },
+        defaultAttributes: { content: '', level: 2, fontFamily: '', textColor: '', fontSize: '', fontWeight: '', fontStyle: '', textAlign: 'left', verticalAlign: 'center', fullBleed: false },
         semanticTag: 'h2',
     },
     'core/image': {

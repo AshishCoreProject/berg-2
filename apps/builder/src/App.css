@@ -2488,6 +2488,14 @@
   display: block;
 }
 
+/* Paragraph/heading vertical alignment wrapper should own vertical distribution. */
+.grid-block-cell .block-content .block-vertical-align-wrap {
+  flex: 1 1 auto;
+  min-height: 100%;
+  height: 100%;
+  width: 100%;
+}
+
 /* Hero and section blocks: fill cell so builder matches storefront appearance */
 .grid-block-cell .block-content .block-hero,
 .grid-block-cell .block-content .block.block-hero {
@@ -3260,6 +3268,30 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
+}
+
+.toolbar-align-group {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.toolbar-align-btn {
+  min-width: 2rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.toolbar-align-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.toolbar-align-btn-active {
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 /* Block toolbar sidebar: full-width select inputs */

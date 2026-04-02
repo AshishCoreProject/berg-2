@@ -542,22 +542,37 @@ export default function App() {
   const updateBlock = useCallback(
     (id: string, attrs: Record<string, unknown> & { innerBlocks?: Block[]; children?: Block[] }) => {
       const { innerBlocks: innerBlocksUpdate, children: childrenUpdate, ...restAttrs } = attrs;
+      const applyUpdate = (blocks: Block[]): Block[] =>
+        blocks.map((b) => {
+          if (b.id === id) {
+            const next: Block = {
+              ...b,
+              attributes: { ...b.attributes, ...restAttrs },
+            };
+            if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
+              (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
+            }
+            if (childrenUpdate !== undefined) {
+              (next as { children?: Block[] }).children = childrenUpdate;
+            }
+            return next;
+          }
+          const anyB = b as unknown as { innerBlocks?: Block[]; children?: Block[] };
+          const nextInner =
+            isInnerBlocksBlock(b) && Array.isArray(anyB.innerBlocks) ? applyUpdate(anyB.innerBlocks) : anyB.innerBlocks;
+          const nextChildren = Array.isArray(anyB.children) ? applyUpdate(anyB.children) : anyB.children;
+          const innerChanged = nextInner !== anyB.innerBlocks;
+          const childrenChanged = nextChildren !== anyB.children;
+          if (!innerChanged && !childrenChanged) return b;
+          return {
+            ...b,
+            ...(innerChanged && isInnerBlocksBlock(b) ? { innerBlocks: nextInner } : {}),
+            ...(childrenChanged ? { children: nextChildren } : {}),
+          };
+        });
       updateDoc((d) => ({
         ...d,
-        blocks: d.blocks.map((b) => {
-          if (b.id !== id) return b;
-          const next: Block = {
-            ...b,
-            attributes: { ...b.attributes, ...restAttrs },
-          };
-          if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
-            (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
-          }
-          if (childrenUpdate !== undefined) {
-            (next as { children?: Block[] }).children = childrenUpdate;
-          }
-          return next;
-        }),
+        blocks: applyUpdate(d.blocks),
       }));
     },
     [updateDoc]
@@ -566,22 +581,37 @@ export default function App() {
   const updateBlockTransient = useCallback(
     (id: string, attrs: Record<string, unknown> & { innerBlocks?: Block[]; children?: Block[] }) => {
       const { innerBlocks: innerBlocksUpdate, children: childrenUpdate, ...restAttrs } = attrs;
+      const applyUpdate = (blocks: Block[]): Block[] =>
+        blocks.map((b) => {
+          if (b.id === id) {
+            const next: Block = {
+              ...b,
+              attributes: { ...b.attributes, ...restAttrs },
+            };
+            if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
+              (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
+            }
+            if (childrenUpdate !== undefined) {
+              (next as { children?: Block[] }).children = childrenUpdate;
+            }
+            return next;
+          }
+          const anyB = b as unknown as { innerBlocks?: Block[]; children?: Block[] };
+          const nextInner =
+            isInnerBlocksBlock(b) && Array.isArray(anyB.innerBlocks) ? applyUpdate(anyB.innerBlocks) : anyB.innerBlocks;
+          const nextChildren = Array.isArray(anyB.children) ? applyUpdate(anyB.children) : anyB.children;
+          const innerChanged = nextInner !== anyB.innerBlocks;
+          const childrenChanged = nextChildren !== anyB.children;
+          if (!innerChanged && !childrenChanged) return b;
+          return {
+            ...b,
+            ...(innerChanged && isInnerBlocksBlock(b) ? { innerBlocks: nextInner } : {}),
+            ...(childrenChanged ? { children: nextChildren } : {}),
+          };
+        });
       updateDocWithoutHistory((d) => ({
         ...d,
-        blocks: d.blocks.map((b) => {
-          if (b.id !== id) return b;
-          const next: Block = {
-            ...b,
-            attributes: { ...b.attributes, ...restAttrs },
-          };
-          if (innerBlocksUpdate !== undefined && isInnerBlocksBlock(next)) {
-            (next as { innerBlocks?: Block[] }).innerBlocks = innerBlocksUpdate;
-          }
-          if (childrenUpdate !== undefined) {
-            (next as { children?: Block[] }).children = childrenUpdate;
-          }
-          return next;
-        }),
+        blocks: applyUpdate(d.blocks),
       }));
     },
     [updateDocWithoutHistory]
@@ -607,6 +637,25 @@ export default function App() {
     },
     [updateDoc, selectedBlockId]
   );
+
+  const deleteSelectedBlock = useCallback((id: string) => {
+    const inDoc = doc.blocks.find((b) => b.id === id);
+    if (inDoc) {
+      deleteBlock(id);
+      return;
+    }
+    const nested = findBlockInTree(doc.blocks, id);
+    if (!nested) return;
+    const { block, parent, container } = nested;
+    if (container === 'innerBlocks') {
+      const nextInner = ((parent as { innerBlocks?: Block[] }).innerBlocks ?? []).filter((f) => f.id !== block.id);
+      updateBlock(parent.id, { innerBlocks: nextInner });
+    } else {
+      const nextChildren = ((parent as unknown as { children?: Block[] }).children ?? []).filter((f) => f.id !== block.id);
+      updateBlock(parent.id, { children: nextChildren });
+    }
+    setSelectedBlockId(parent.id);
+  }, [deleteBlock, doc.blocks, updateBlock]);
 
   const moveBlock = useCallback(
     (id: string, direction: 'up' | 'down') => {
@@ -638,6 +687,30 @@ export default function App() {
     },
     [doc.blocks, updateDoc]
   );
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false;
+      return (
+        target.isContentEditable ||
+        !!target.closest('[contenteditable="true"]') ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      );
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Del') return;
+      if (!selectedBlockId) return;
+      if (isEditableTarget(e.target)) return;
+      e.preventDefault();
+      deleteSelectedBlock(selectedBlockId);
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [deleteSelectedBlock, selectedBlockId]);
 
   function findBlockInTree(blocks: Block[], id: string): null | {
     block: Block;
@@ -981,6 +1054,7 @@ export default function App() {
                   blocks={doc.blocks}
                   selectedBlockId={selectedBlockId}
                   onSelect={setSelectedBlockId}
+                  onDelete={deleteSelectedBlock}
                 />
               ) : (
                 <p className="sidebar-empty-hint">Add a page first.</p>

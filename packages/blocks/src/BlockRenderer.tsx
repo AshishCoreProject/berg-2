@@ -93,6 +93,14 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
 export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
+  const textAlign = (attrs.textAlign as string | undefined) ?? 'left';
+  const verticalAlign = (attrs.verticalAlign as string | undefined) ?? 'center';
+  const normalizedTextAlign =
+    textAlign === 'center' || textAlign === 'right' || textAlign === 'left' ? textAlign : 'left';
+  const normalizedVerticalAlign =
+    verticalAlign === 'top' || verticalAlign === 'center' || verticalAlign === 'bottom' ? verticalAlign : 'center';
+  const verticalJustifyContent: React.CSSProperties['justifyContent'] =
+    normalizedVerticalAlign === 'top' ? 'flex-start' : normalizedVerticalAlign === 'bottom' ? 'flex-end' : 'center';
 
   const textStyle = (): React.CSSProperties => {
     const s: React.CSSProperties = {};
@@ -121,11 +129,27 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
   let content: React.ReactNode = null;
 
   switch (block.type) {
+    case 'core/box': {
+      content = (
+        <div className="block block-box" style={{ minHeight: '100%', width: '100%', boxSizing: 'border-box' }} />
+      );
+      break;
+    }
+
     case 'core/paragraph': {
       const c = (attrs.content as string) ?? '';
       if (!c.trim()) break;
       const style = textStyle();
-      content = isHtml(c) ? <p className="block block-paragraph" style={style} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <p className="block block-paragraph" style={style}>{c}</p>;
+      style.textAlign = normalizedTextAlign;
+      const nodeStyle: React.CSSProperties = { ...style, flex: '0 0 auto' };
+      content = (
+        <div
+          className="block-vertical-align-wrap"
+          style={{ display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }}
+        >
+          {isHtml(c) ? <p className="block block-paragraph" style={nodeStyle} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <p className="block block-paragraph" style={nodeStyle}>{c}</p>}
+        </div>
+      );
       break;
     }
 
@@ -135,7 +159,16 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
       if (!c.trim()) break;
       const style = textStyle();
-      content = isHtml(c) ? <Tag className="block block-heading" style={style} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <Tag className="block block-heading" style={style}>{c}</Tag>;
+      style.textAlign = normalizedTextAlign;
+      const nodeStyle: React.CSSProperties = { ...style, flex: '0 0 auto' };
+      content = (
+        <div
+          className="block-vertical-align-wrap"
+          style={{ display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }}
+        >
+          {isHtml(c) ? <Tag className="block block-heading" style={nodeStyle} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <Tag className="block block-heading" style={nodeStyle}>{c}</Tag>}
+        </div>
+      );
       break;
     }
 

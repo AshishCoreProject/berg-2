@@ -24,6 +24,12 @@
   margin: 0;
 }
 
+.block-content .block-box {
+  border: 1px dashed var(--border, #cbd5e1);
+  border-radius: var(--radius-md, 8px);
+  min-height: 2rem;
+}
+
 .block-content .block-paragraph {
   font-size: 1.0625rem;
   line-height: 1.6;
@@ -89,6 +95,14 @@
   opacity: 0.95;
   transform: translateY(-1px);
   text-decoration: none;
+}
+
+/* In builder, make standalone Button blocks span full selected block width. */
+.block-content .block.block-button .button-link {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .block-content .button-link-preview {

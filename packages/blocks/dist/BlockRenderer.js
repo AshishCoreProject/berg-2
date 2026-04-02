@@ -54,6 +54,11 @@ function buildSpacingStyle(attrs) {
 export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
+    const textAlign = attrs.textAlign ?? 'left';
+    const verticalAlign = attrs.verticalAlign ?? 'center';
+    const normalizedTextAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'left' ? textAlign : 'left';
+    const normalizedVerticalAlign = verticalAlign === 'top' || verticalAlign === 'center' || verticalAlign === 'bottom' ? verticalAlign : 'center';
+    const verticalJustifyContent = normalizedVerticalAlign === 'top' ? 'flex-start' : normalizedVerticalAlign === 'bottom' ? 'flex-end' : 'center';
     const textStyle = () => {
         const s = {};
         const font = attrs.fontFamily;
@@ -80,12 +85,18 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
     };
     let content = null;
     switch (block.type) {
+        case 'core/box': {
+            content = (_jsx("div", { className: "block block-box", style: { minHeight: '100%', width: '100%', boxSizing: 'border-box' }, children: _jsx("div", { className: "block-box-inner" }) }));
+            break;
+        }
         case 'core/paragraph': {
             const c = attrs.content ?? '';
             if (!c.trim())
                 break;
             const style = textStyle();
-            content = isHtml(c) ? _jsx("p", { className: "block block-paragraph", style: style, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx("p", { className: "block block-paragraph", style: style, children: c });
+            style.textAlign = normalizedTextAlign;
+            const nodeStyle = { ...style, flex: '0 0 auto' };
+            content = (_jsx("div", { className: "block-vertical-align-wrap", style: { display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }, children: isHtml(c) ? _jsx("p", { className: "block block-paragraph", style: nodeStyle, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx("p", { className: "block block-paragraph", style: nodeStyle, children: c }) }));
             break;
         }
         case 'core/heading': {
@@ -95,7 +106,9 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
             if (!c.trim())
                 break;
             const style = textStyle();
-            content = isHtml(c) ? _jsx(Tag, { className: "block block-heading", style: style, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx(Tag, { className: "block block-heading", style: style, children: c });
+            style.textAlign = normalizedTextAlign;
+            const nodeStyle = { ...style, flex: '0 0 auto' };
+            content = (_jsx("div", { className: "block-vertical-align-wrap", style: { display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }, children: isHtml(c) ? _jsx(Tag, { className: "block block-heading", style: nodeStyle, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx(Tag, { className: "block block-heading", style: nodeStyle, children: c }) }));
             break;
         }
         case 'core/image': {

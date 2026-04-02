@@ -28,6 +28,132 @@ const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
   'store/promo-banner', 'store/newsletter', 'store/testimonials', 'store/trust-badges',
 ];
 const BUTTON_STYLE_BLOCK_TYPES: Block['type'][] = ['core/button', 'core/hero', 'store/product-grid', 'store/collection-list'];
+type TextAlignValue = 'left' | 'center' | 'right';
+type VerticalAlignValue = 'top' | 'center' | 'bottom';
+
+function TextAlignControl({
+  value,
+  onChange,
+}: {
+  value: TextAlignValue;
+  onChange: (next: TextAlignValue) => void;
+}) {
+  const options: Array<{ value: TextAlignValue; label: string; icon: JSX.Element }> = [
+    {
+      value: 'left',
+      label: 'Align left',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="14" y2="12" />
+          <line x1="4" y1="18" x2="18" y2="18" />
+        </svg>
+      ),
+    },
+    {
+      value: 'center',
+      label: 'Align center',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="7" y1="12" x2="17" y2="12" />
+          <line x1="6" y1="18" x2="18" y2="18" />
+        </svg>
+      ),
+    },
+    {
+      value: 'right',
+      label: 'Align right',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="10" y1="12" x2="20" y2="12" />
+          <line x1="6" y1="18" x2="20" y2="18" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="toolbar-align-group" role="group" aria-label="Text alignment">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`toolbar-btn toolbar-btn-icon toolbar-align-btn ${value === option.value ? 'toolbar-align-btn-active' : ''}`}
+          onClick={() => onChange(option.value)}
+          aria-label={option.label}
+          title={option.label}
+          aria-pressed={value === option.value}
+        >
+          {option.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function VerticalAlignControl({
+  value,
+  onChange,
+}: {
+  value: VerticalAlignValue;
+  onChange: (next: VerticalAlignValue) => void;
+}) {
+  const options: Array<{ value: VerticalAlignValue; label: string; icon: JSX.Element }> = [
+    {
+      value: 'top',
+      label: 'Align top',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="5" x2="20" y2="5" />
+          <line x1="8" y1="10" x2="16" y2="10" />
+          <line x1="8" y1="14" x2="16" y2="14" />
+        </svg>
+      ),
+    },
+    {
+      value: 'center',
+      label: 'Align middle',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="8" y1="8" x2="16" y2="8" />
+          <line x1="8" y1="16" x2="16" y2="16" />
+        </svg>
+      ),
+    },
+    {
+      value: 'bottom',
+      label: 'Align bottom',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="19" x2="20" y2="19" />
+          <line x1="8" y1="10" x2="16" y2="10" />
+          <line x1="8" y1="14" x2="16" y2="14" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="toolbar-align-group" role="group" aria-label="Vertical text alignment">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`toolbar-btn toolbar-btn-icon toolbar-align-btn ${value === option.value ? 'toolbar-align-btn-active' : ''}`}
+          onClick={() => onChange(option.value)}
+          aria-label={option.label}
+          title={option.label}
+          aria-pressed={value === option.value}
+        >
+          {option.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function BlockToolbarSidebar({
   block,
@@ -116,6 +242,38 @@ export function BlockToolbarSidebar({
                   <option key={n} value={n}>H{n}</option>
                 ))}
               </select>
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
+            </div>
+          </>
+        )}
+        {block.type === 'core/paragraph' && (
+          <>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
             </div>
           </>
         )}

@@ -7,6 +7,7 @@ export const SCHEMA_VERSION = 1;
 
 /** Block type identifiers – extend this for new blocks. */
 export type BlockType =
+  | 'core/box'
   | 'core/paragraph'
   | 'core/heading'
   | 'core/image'
