@@ -9,6 +9,7 @@ import { ButtonStyleControls } from '@/components/controls/ButtonStyleControls';
 import { TextEditor } from '@/components/controls/TextEditor';
 import { StyleEditor } from '@/components/controls/StyleEditor';
 import { CollapsibleSection } from '@/features/sidebar';
+import type { Viewport } from '@/components/canvas/ViewportSwitcher';
 
 interface Props {
   block: Block;
@@ -21,6 +22,7 @@ interface Props {
   gridColumnSpan: number;
   gridColumnStart: number;
   onGridChange?: (span: number, start: number) => void;
+  viewport: Viewport;
   /** When true, the "Layout" section edits `block.attributes.layerLayout` instead of `block.attributes.layout`. */
   isLayerChildSelected?: boolean;
   /** Rendered height in px for the selected layer child parent overlay. Used to convert px <-> hPct. */
@@ -173,9 +175,10 @@ export function BlockToolbarSidebar({
   gridColumnSpan,
   gridColumnStart,
   onGridChange,
+  viewport,
   isLayerChildSelected = false,
   layerParentHeightPx,
-  layerParentSpan = 12,
+  layerParentSpan: _layerParentSpan = 12,
 }: Props) {
   const attrs = block.attributes ?? {};
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
@@ -1011,11 +1014,15 @@ export function BlockToolbarSidebar({
                 value={(attrs.height as number) ?? 40}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
+                  const existingByViewport = (attrs.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+                  const currentLayout = (existingByViewport[viewport] as Record<string, unknown> | undefined) ?? {};
                   const rowHeight = 40;
                   onUpdate({
                     height: v,
-                    layout: { ...layout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                    layoutByViewport: {
+                      ...existingByViewport,
+                      [viewport]: { ...currentLayout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                    },
                   });
                 }}
                 aria-label="Spacer height"
@@ -1280,7 +1287,7 @@ export function BlockToolbarSidebar({
                     return clamp(px, 40, 800);
                   }
 
-                  const layout = attrs.layout as { h?: number } | undefined;
+                  const layout = ((attrs.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
                   const h = layout?.h ?? 2;
                   return h * 40;
                 })()}
@@ -1288,7 +1295,7 @@ export function BlockToolbarSidebar({
                   const px = Math.max(40, Math.min(800, Number(e.target.value) || 40));
                   if (isLayerChildSelected) {
                     const layerLayout = (attrs.layerLayout as Record<string, unknown> | undefined) ?? {};
-                    const yPct = typeof (layerLayout as { yPct?: number })?.yPct === 'number' ? (layerLayout as { yPct?: number }).yPct : 0;
+                    const yPct = (typeof (layerLayout as { yPct?: number })?.yPct === 'number' ? (layerLayout as { yPct?: number }).yPct : 0) ?? 0;
                     const parentH = layerParentHeightPx ?? 0;
                     const minHPct = 2;
                     const maxHPct = clamp(100 - yPct, minHPct, 100);
@@ -1299,8 +1306,14 @@ export function BlockToolbarSidebar({
                   }
 
                   const h = Math.max(1, Math.round(px / 40));
-                  const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
-                  onUpdate({ layout: { ...layout, h } });
+                  const existingByViewport = (attrs.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+                  const currentLayout = (existingByViewport[viewport] as Record<string, unknown> | undefined) ?? {};
+                  onUpdate({
+                    layoutByViewport: {
+                      ...existingByViewport,
+                      [viewport]: { ...currentLayout, h },
+                    },
+                  });
                 }}
                 aria-label="Block height in pixels"
                 style={{ flex: 1 }}

@@ -35,6 +35,10 @@ const FONT_OPTIONS = [
   { value: "monospace", label: "Monospace" },
 ];
 
+function isLogoDataUrl(url: string | undefined): boolean {
+  return Boolean(url?.startsWith("data:"));
+}
+
 export function StyleEditor({ title, values, onChange, variant }: Props) {
   const set = (key: keyof StyleValues, value: string | undefined) => {
     onChange({ ...values, [key]: value || undefined });
@@ -196,16 +200,50 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
                     }
                   };
                   reader.readAsDataURL(file);
+                  e.target.value = "";
                 }}
               />
               <span>Upload Logo</span>
             </label>
           </label>
-          <label>
+          {isLogoDataUrl(values.logoUrl) && (
+            <div
+              className="style-editor-row"
+              style={{ alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}
+            >
+              <img
+                src={values.logoUrl}
+                alt=""
+                style={{
+                  maxHeight: 40,
+                  maxWidth: 120,
+                  width: "auto",
+                  objectFit: "contain",
+                  borderRadius: 4,
+                  border: "1px solid var(--border, #e2e8f0)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => set("logoUrl", undefined)}
+                aria-label="Remove uploaded logo"
+                style={{ padding: "0.35rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          <label className="style-editor-row" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.35rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+              {isLogoDataUrl(values.logoUrl)
+                ? "Or paste an image URL (replaces upload)"
+                : "Image URL"}
+            </span>
             <input
               type="url"
-              className=""
-              value={values.logoUrl ?? ""}
+              value={
+                isLogoDataUrl(values.logoUrl) ? "" : (values.logoUrl ?? "")
+              }
               onChange={(e) =>
                 set("logoUrl", e.target.value.trim() || undefined)
               }

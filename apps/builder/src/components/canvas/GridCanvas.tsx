@@ -9,6 +9,7 @@ import type { Block } from '@berg/schema';
 import { getLayoutItems, getDefaultHeightForType } from '@/lib/autoPlace';
 import { BlockEditor } from '@/components/blocks';
 import { BLOCK_DRAG_TYPE } from '@/components/blocks';
+import type { Viewport } from '@/components/canvas/ViewportSwitcher';
 
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -22,6 +23,7 @@ const DROP_PLACEHOLDER_ID = '__drop__';
 interface GridCanvasProps {
   blocks: Block[];
   selectedBlockId: string | null;
+  viewport: Viewport;
   onSelectBlock: (id: string) => void;
   onUpdateBlock: (id: string, attrs: Record<string, unknown>) => void;
   onTransientUpdateBlock?: (id: string, attrs: Record<string, unknown>) => void;
@@ -41,7 +43,7 @@ interface GridCanvasProps {
   onInsertChildBlock?: (parentId: string, type: import('@berg/schema').BlockType, xPct: number, yPct: number) => void;
   /** When true, block toolbar is shown in the right sidebar instead of inline. */
   toolbarInSidebar?: boolean;
-  /** Canvas width (matches storefront: 960, tablet: 768, mobile: 375). */
+  /** Canvas width (matches VIEWPORT_WIDTHS: desktop 1460, tablet 768, mobile 390). */
   canvasWidth?: number;
   apiBaseUrl?: string;
   useDemoData?: boolean;
@@ -50,6 +52,7 @@ interface GridCanvasProps {
 export function GridCanvas({
   blocks,
   selectedBlockId,
+  viewport,
   onSelectBlock,
   onUpdateBlock,
   onTransientUpdateBlock,
@@ -68,7 +71,7 @@ export function GridCanvas({
   apiBaseUrl,
   useDemoData,
 }: GridCanvasProps) {
-  const layout = useMemo(() => getLayoutItems(blocks), [blocks]);
+  const layout = useMemo(() => getLayoutItems(blocks, viewport), [blocks, viewport]);
 
   const layouts = useMemo(
     () => ({
@@ -162,6 +165,7 @@ export function GridCanvas({
             <BlockEditor
               block={block}
               isSelected={selectedBlockId === block.id}
+              viewport={viewport}
               onSelect={() => onSelectBlock(block.id)}
               onSelectNestedBlock={onSelectBlock}
               isNestedSelected={(id) => selectedBlockId === id}
@@ -181,16 +185,19 @@ export function GridCanvas({
               useStorefrontPreview
               apiBaseUrl={apiBaseUrl}
               useDemoData={useDemoData}
-              gridColumnSpan={(block.attributes?.layout as { w?: number })?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12}
-              gridColumnStart={(block.attributes?.layout as { x?: number })?.x != null ? ((block.attributes?.layout as { x: number }).x + 1) : ((block.attributes?.gridColumnStart as number) ?? 1)}
+              gridColumnSpan={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { w?: number } | undefined)?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12}
+              gridColumnStart={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { x?: number } | undefined)?.x != null ? ((((block.attributes?.layoutByViewport as Record<string, unknown>)[viewport] as { x: number }).x) + 1) : ((block.attributes?.gridColumnStart as number) ?? 1)}
               onGridChange={(newSpan, newStart) =>
                 onUpdateBlock(block.id, {
-                  layout: {
-                    ...((block.attributes?.layout as object) || {}),
-                    x: newStart - 1,
-                    y: (block.attributes?.layout as { y?: number })?.y ?? 0,
-                    w: newSpan,
-                    h: (block.attributes?.layout as { h?: number })?.h ?? 2,
+                  layoutByViewport: {
+                    ...((block.attributes?.layoutByViewport as object) || {}),
+                    [viewport]: {
+                      ...((((block.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {})[viewport] as object) || {}),
+                      x: newStart - 1,
+                      y: (((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { y?: number } | undefined)?.y ?? 0),
+                      w: newSpan,
+                      h: (((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined)?.h ?? 2),
+                    },
                   },
                   gridColumnSpan: newSpan,
                   gridColumnStart: newStart,

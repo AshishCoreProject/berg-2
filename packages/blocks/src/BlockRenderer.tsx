@@ -4,11 +4,17 @@ import { isInnerBlocksBlock } from '@berg/schema';
 import { sanitizeHtml, isHtml, sanitizeCustomHtml } from './sanitizeHtml';
 import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
+import { resolveGridLayout, type StorefrontViewport } from './blockLayout';
 
 interface Props {
   block: Block;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  /**
+   * Which `layoutByViewport` bucket to use for grid-derived sizing (e.g. core/box min-height).
+   * Storefront passes `useStorefrontViewport()`; builder omits (defaults to desktop).
+   */
+  layoutViewport?: StorefrontViewport;
   /**
    * When false, skip rendering `block.children` overlay.
    * Used by builder to render a clean parent surface and draw children via
@@ -42,6 +48,7 @@ function FormBlock({
   fields,
   apiBaseUrl,
   useDemoData,
+  layoutViewport,
 }: {
   title: string;
   submitButtonText: string;
@@ -49,6 +56,7 @@ function FormBlock({
   fields: Block[];
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  layoutViewport?: StorefrontViewport;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -65,7 +73,7 @@ function FormBlock({
       {title && <h3 className="block-form-title">{title}</h3>}
       <form ref={formRef} className="block-form-inner" onSubmit={(e) => e.preventDefault()}>
         {fields.map((f) => (
-          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
         ))}
         <div className="block-form-actions">
           <button type="submit" className="button-link form-submit-btn">
@@ -90,7 +98,7 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
   return s;
 }
 
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }: Props) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, layoutViewport = 'desktop' }: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
   const textAlign = (attrs.textAlign as string | undefined) ?? 'left';
@@ -132,7 +140,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
     case 'core/box': {
       // On storefront, an empty Box has no intrinsic height. Use builder layout rows (40px)
       // as a sensible default so background/border/shadow are visible.
-      const layout = attrs.layout as { h?: number } | undefined;
+      const layout = resolveGridLayout(attrs as Record<string, unknown>, layoutViewport);
       const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
       const style: React.CSSProperties = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
       const bg = attrs.backgroundColor as string | undefined;
@@ -256,7 +264,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
             >
               {block.innerBlocks.map((col) => (
                 <div key={col.id} className="column">
-                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
                 </div>
               ))}
             </div>
@@ -558,6 +566,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
             fields={block.innerBlocks}
             apiBaseUrl={apiBaseUrl}
             useDemoData={useDemoData}
+            layoutViewport={layoutViewport}
           />
         );
       } else {
@@ -725,7 +734,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
                 overflow: 'visible',
               }}
             >
-              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={renderChildren} />
+              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={renderChildren} layoutViewport={layoutViewport} />
             </div>
           );
         })}

@@ -4,6 +4,7 @@ import { isInnerBlocksBlock } from '@berg/schema';
 import { sanitizeHtml, isHtml, sanitizeCustomHtml } from './sanitizeHtml';
 import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
+import { resolveGridLayout } from './blockLayout';
 /**
  * Renders a single block to semantic HTML for SEO and accessibility.
  * Each block type maps to appropriate tags (section, article, h1–h6, p, figure, etc.).
@@ -23,7 +24,7 @@ function normalizeSpacingValue(v) {
     return trimmed;
 }
 /** Form container: renders fields + submit button, runs submitScript on mount */
-function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, }) {
+function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, layoutViewport, }) {
     const formRef = useRef(null);
     useEffect(() => {
         if (!formRef.current || !submitScript.trim())
@@ -36,7 +37,7 @@ function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, 
             /* ignore parse/runtime errors in user script */
         }
     }, [submitScript]);
-    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
+    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
 }
 function buildSpacingStyle(attrs) {
     const s = {};
@@ -51,7 +52,7 @@ function buildSpacingStyle(attrs) {
     }
     return s;
 }
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, layoutViewport = 'desktop' }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
     const textAlign = attrs.textAlign ?? 'left';
@@ -86,7 +87,9 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
     let content = null;
     switch (block.type) {
         case 'core/box': {
-            const layout = attrs.layout;
+            // On storefront, an empty Box has no intrinsic height. Use builder layout rows (40px)
+            // as a sensible default so background/border/shadow are visible.
+            const layout = resolveGridLayout(attrs, layoutViewport);
             const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
             const style = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
             const bg = attrs.backgroundColor;
@@ -179,7 +182,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
                 const gridCols = columnWidths && columnWidths.length === block.innerBlocks.length
                     ? columnWidths.map((p) => `${p}fr`).join(' ')
                     : `repeat(${columns}, 1fr)`;
-                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }) }, col.id))) }) }));
+                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }) }, col.id))) }) }));
             }
             break;
         }
@@ -381,7 +384,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
                 const title = attrs.title ?? 'Contact us';
                 const submitText = attrs.submitButtonText ?? 'Submit';
                 const submitScript = attrs.submitScript ?? '';
-                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }));
+                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }));
             }
             else {
                 content = (_jsx("section", { className: "block block-form block-form-empty", children: _jsx("p", { className: "block-form-empty-hint", children: "Add form fields by dragging them from the Form section." }) }));
@@ -481,6 +484,6 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren }
                             width: `${wPct}%`,
                             height: `${hPct}%`,
                             overflow: 'visible',
-                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, renderChildren: renderChildren }) }, child.id));
+                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, renderChildren: renderChildren, layoutViewport: layoutViewport }) }, child.id));
                 }) })] }));
 }

@@ -32,12 +32,13 @@ export function BuilderHeaderFooter({
   const footerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Capture phase: canvas blocks call stopPropagation on click, so bubble listeners on document never run.
     const close = (e: MouseEvent) => {
       if (editingHeader && headerRef.current && !headerRef.current.contains(e.target as Node)) setEditingHeader(false);
       if (editingFooter && footerRef.current && !footerRef.current.contains(e.target as Node)) setEditingFooter(false);
     };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
   }, [editingHeader, editingFooter]);
 
   const headerCss: React.CSSProperties = {
@@ -122,9 +123,11 @@ export function BuilderHeaderPreview({
   const [editing, setEditing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const close = (e: MouseEvent) => { if (editing && ref.current && !ref.current.contains(e.target as Node)) setEditing(false); };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    const close = (e: MouseEvent) => {
+      if (editing && ref.current && !ref.current.contains(e.target as Node)) setEditing(false);
+    };
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
   }, [editing]);
   const navPages = pages.filter((p) => p.slug !== homeSlug);
   return (
@@ -216,9 +219,11 @@ export function BuilderFooterPreview({
   const [editing, setEditing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const close = (e: MouseEvent) => { if (editing && ref.current && !ref.current.contains(e.target as Node)) setEditing(false); };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    const close = (e: MouseEvent) => {
+      if (editing && ref.current && !ref.current.contains(e.target as Node)) setEditing(false);
+    };
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
   }, [editing]);
   const cfg = footerLinks ?? buildDefaultFooterLinks(pages, homeSlug ?? '');
   const isMobilePreview = viewport === 'mobile';

@@ -26,7 +26,11 @@ function makeBlock(
     attributes: {
       ...def.defaultAttributes,
       ...attrs,
-      layout: { x: layout.x, y: layout.y, w: layout.w, h: layout.h, minW: 1, minH: 1 },
+      layoutByViewport: {
+        desktop: { x: layout.x, y: layout.y, w: layout.w, h: layout.h, minW: 1, minH: 1 },
+        tablet: { x: layout.x, y: layout.y, w: layout.w, h: layout.h, minW: 1, minH: 1 },
+        mobile: { x: layout.x, y: layout.y, w: layout.w, h: layout.h, minW: 1, minH: 1 },
+      },
       gridColumnSpan: 12,
       gridColumnStart: 1,
     },

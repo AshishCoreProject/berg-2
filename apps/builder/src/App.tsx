@@ -50,6 +50,67 @@ function ensureStore(): StoreData {
   return next;
 }
 
+type GridLayout = { x: number; y: number; w: number; h: number; minW?: number; minH?: number };
+type LayoutByViewport = Partial<Record<Viewport, GridLayout>>;
+
+function migrateLayoutByViewportInBlocks(blocks: Block[]): { blocks: Block[]; changed: boolean } {
+  let changed = false;
+  const nextBlocks = blocks.map((b) => {
+    const attrs = (b.attributes ?? {}) as Record<string, unknown>;
+    const existingByViewport = (attrs.layoutByViewport as LayoutByViewport | undefined) ?? undefined;
+    const layout = attrs.layout as GridLayout | undefined;
+    const shouldSeed = !!layout && (!existingByViewport || !existingByViewport.desktop);
+
+    let nextAttrs: Record<string, unknown> | null = null;
+    if (shouldSeed) {
+      const seeded: LayoutByViewport = {
+        ...(existingByViewport ?? {}),
+        desktop: existingByViewport?.desktop ?? layout,
+        tablet: existingByViewport?.tablet ?? layout,
+        mobile: existingByViewport?.mobile ?? layout,
+      };
+      nextAttrs = { ...attrs, layoutByViewport: seeded };
+      // One-time migration: remove legacy layout to avoid accidental reads/writes.
+      delete (nextAttrs as { layout?: unknown }).layout;
+      changed = true;
+    } else if (layout && existingByViewport && existingByViewport.desktop) {
+      // If both exist, prefer layoutByViewport and remove legacy layout (keeps data clean).
+      nextAttrs = { ...attrs };
+      delete (nextAttrs as { layout?: unknown }).layout;
+      changed = true;
+    }
+
+    // Recurse into innerBlocks and children.
+    let nextInnerBlocks: Block[] | undefined = undefined;
+    if (isInnerBlocksBlock(b) && Array.isArray((b as { innerBlocks?: Block[] }).innerBlocks)) {
+      const inner = (b as { innerBlocks?: Block[] }).innerBlocks ?? [];
+      const migrated = migrateLayoutByViewportInBlocks(inner);
+      if (migrated.changed) {
+        nextInnerBlocks = migrated.blocks;
+        changed = true;
+      }
+    }
+    let nextChildren: Block[] | undefined = undefined;
+    const anyB = b as unknown as { children?: Block[] };
+    if (Array.isArray(anyB.children)) {
+      const migrated = migrateLayoutByViewportInBlocks(anyB.children);
+      if (migrated.changed) {
+        nextChildren = migrated.blocks;
+        changed = true;
+      }
+    }
+
+    if (!nextAttrs && nextInnerBlocks === undefined && nextChildren === undefined) return b;
+    return {
+      ...b,
+      ...(nextAttrs ? { attributes: nextAttrs } : {}),
+      ...(nextInnerBlocks !== undefined ? { innerBlocks: nextInnerBlocks } : {}),
+      ...(nextChildren !== undefined ? { children: nextChildren } : {}),
+    } as Block;
+  });
+  return { blocks: nextBlocks, changed };
+}
+
 export default function App() {
   const [store, setStore] = useState<StoreData>(ensureStore);
   const [undoStack, setUndoStack] = useState<StoreData[]>([]);
@@ -67,6 +128,21 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<null | { id: string; x: number; y: number }>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const transactionSnapshotRef = useRef<StoreData | null>(null);
+
+  // One-time migration: move `attributes.layout` into `attributes.layoutByViewport` (desktop/tablet/mobile).
+  useEffect(() => {
+    persistStoreWithoutHistory((prev) => {
+      let changed = false;
+      const nextPages = prev.pages.map((p) => {
+        const migrated = migrateLayoutByViewportInBlocks(p.document.blocks);
+        if (!migrated.changed) return p;
+        changed = true;
+        return { ...p, document: { ...p.document, blocks: migrated.blocks } };
+      });
+      return changed ? { ...prev, pages: nextPages } : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentPage = useMemo(
     () => pages.find((p) => p.id === currentPageId) ?? null,
@@ -410,7 +486,11 @@ export default function App() {
         type,
         attributes: {
           ...def.defaultAttributes,
-          layout: { x: 0, y: 0, w: 12, h: defaultH, minW: 1, minH: 1 },
+          layoutByViewport: {
+            desktop: { x: 0, y: 0, w: 12, h: defaultH, minW: 1, minH: 1 },
+            tablet: { x: 0, y: 0, w: 12, h: defaultH, minW: 1, minH: 1 },
+            mobile: { x: 0, y: 0, w: 12, h: defaultH, minW: 1, minH: 1 },
+          },
           gridColumnSpan: 12,
           gridColumnStart: 1,
         },
@@ -426,7 +506,7 @@ export default function App() {
         (block as { innerBlocks?: Block[] }).innerBlocks = [];
       }
       const newBlocks = [...doc.blocks.slice(0, i), block, ...doc.blocks.slice(i)];
-      const layout = getLayoutItems(newBlocks);
+      const layout = getLayoutItems(newBlocks, viewport);
       const compacted = compactLayoutVertical(layout.map((item, idx) => ({ ...item, y: idx * 100 })));
       const updates = new Map(compacted.map((item) => [item.i, { x: item.x, y: item.y, w: item.w, h: item.h }]));
       updateDoc((d) => ({
@@ -434,11 +514,19 @@ export default function App() {
         blocks: newBlocks.map((b) => {
           const l = updates.get(b.id);
           if (!l) return b;
+          const existingByViewport = (b.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+          const nextByViewport = { ...existingByViewport, [viewport]: l };
+          // Seed other viewports for the *new* block only (so switching viewports doesn't lose it).
+          if (b.id === id) {
+            if (!('desktop' in nextByViewport)) (nextByViewport as Record<string, unknown>).desktop = l;
+            if (!('tablet' in nextByViewport)) (nextByViewport as Record<string, unknown>).tablet = l;
+            if (!('mobile' in nextByViewport)) (nextByViewport as Record<string, unknown>).mobile = l;
+          }
           return {
             ...b,
             attributes: {
               ...b.attributes,
-              layout: l,
+              layoutByViewport: nextByViewport,
               gridColumnSpan: l.w,
               gridColumnStart: l.x + 1,
             },
@@ -447,7 +535,7 @@ export default function App() {
       }));
       setSelectedBlockId(id);
     },
-    [doc.blocks, updateDoc]
+    [doc.blocks, updateDoc, viewport]
   );
 
   const insertChildBlock = useCallback(
@@ -483,7 +571,8 @@ export default function App() {
 
       updateDoc((d) => {
         const parentBlock = findAnyBlock(d.blocks, parentId);
-        const parentHRows = ((parentBlock?.attributes?.layout as { h?: number } | undefined)?.h ?? 2) as number;
+        const parentHRows =
+          ((((parentBlock?.attributes as Record<string, unknown> | undefined)?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined)?.h ?? 2) as number;
         const childHRows = Math.max(1, Math.round((hPctDefault / 100) * parentHRows));
 
         const childX = clampLayerX(xPct);
@@ -536,7 +625,7 @@ export default function App() {
       });
       setSelectedBlockId(id);
     },
-    [updateDoc]
+    [updateDoc, viewport]
   );
 
   const updateBlock = useCallback(
@@ -665,7 +754,7 @@ export default function App() {
       if (next < 0 || next >= doc.blocks.length) return;
       const blocks = [...doc.blocks];
       [blocks[idx], blocks[next]] = [blocks[next]!, blocks[idx]!];
-      const layout = getLayoutItems(blocks);
+      const layout = getLayoutItems(blocks, viewport);
       const compacted = compactLayoutVertical(layout.map((item, i) => ({ ...item, y: i * 100 })));
       const updates = new Map(compacted.map((item) => [item.i, { x: item.x, y: item.y, w: item.w, h: item.h }]));
       updateDoc((d) => ({
@@ -677,7 +766,10 @@ export default function App() {
             ...b,
             attributes: {
               ...b.attributes,
-              layout: l,
+              layoutByViewport: {
+                ...(((b.attributes as Record<string, unknown> | undefined)?.layoutByViewport as object) || {}),
+                [viewport]: l,
+              },
               gridColumnSpan: l.w,
               gridColumnStart: l.x + 1,
             },
@@ -685,7 +777,7 @@ export default function App() {
         }),
       }));
     },
-    [doc.blocks, updateDoc]
+    [doc.blocks, updateDoc, viewport]
   );
 
   useEffect(() => {
@@ -749,7 +841,11 @@ export default function App() {
         type,
         attributes: {
           ...def.defaultAttributes,
-          layout: { ...droppedLayout, minW: 1, minH: 1 },
+          layoutByViewport: {
+            desktop: { ...droppedLayout, minW: 1, minH: 1 },
+            tablet: { ...droppedLayout, minW: 1, minH: 1 },
+            mobile: { ...droppedLayout, minW: 1, minH: 1 },
+          },
           gridColumnSpan: droppedLayout.w,
           gridColumnStart: droppedLayout.x + 1,
         },
@@ -766,7 +862,7 @@ export default function App() {
       }
       const formFieldTypes = ['core/form-input', 'core/form-select', 'core/form-textarea'] as const;
       if (formFieldTypes.includes(type as typeof formFieldTypes[number])) {
-        const layout = getLayoutItems(doc.blocks);
+        const layout = getLayoutItems(doc.blocks, viewport);
         const dropY = droppedLayout.y;
         const formItem = layout.find(
           (item) => {
@@ -807,7 +903,11 @@ export default function App() {
           type: 'core/form',
           attributes: {
             ...getBlockDefinition('core/form').defaultAttributes,
-            layout: { ...droppedLayout, minW: 1, minH: 1 },
+            layoutByViewport: {
+              desktop: { ...droppedLayout, minW: 1, minH: 1 },
+              tablet: { ...droppedLayout, minW: 1, minH: 1 },
+              mobile: { ...droppedLayout, minW: 1, minH: 1 },
+            },
             gridColumnSpan: droppedLayout.w,
             gridColumnStart: droppedLayout.x + 1,
           },
@@ -815,14 +915,14 @@ export default function App() {
         (formBlock as { innerBlocks?: Block[] }).innerBlocks = [fieldBlock];
         const sortedIndices = doc.blocks
           .map((b, i) => {
-            const ly = (b.attributes?.layout as { y?: number })?.y ?? 0;
+            const ly = ((b.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { y?: number } | undefined)?.y ?? 0;
             return { i, y: ly };
           })
           .sort((a, b) => a.y - b.y);
         const insertIdx = sortedIndices.findIndex(({ y }) => y >= droppedLayout.y);
         const i = insertIdx >= 0 ? sortedIndices[insertIdx]!.i : doc.blocks.length;
         const newBlocks = [...doc.blocks.slice(0, i), formBlock, ...doc.blocks.slice(i)];
-        const layoutItems = getLayoutItems(newBlocks);
+        const layoutItems = getLayoutItems(newBlocks, viewport);
         const compacted = compactLayoutVertical(layoutItems.map((item, idx) => ({ ...item, y: idx * 100 })));
         const updates = new Map(compacted.map((item) => [item.i, { x: item.x, y: item.y, w: item.w, h: item.h }]));
         updateDoc((d) => ({
@@ -830,11 +930,18 @@ export default function App() {
           blocks: newBlocks.map((b) => {
             const l = updates.get(b.id);
             if (!l) return b;
+            const existingByViewport = (b.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+            const nextByViewport = { ...existingByViewport, [viewport]: l };
+            if (b.id === formId) {
+              if (!('desktop' in nextByViewport)) (nextByViewport as Record<string, unknown>).desktop = l;
+              if (!('tablet' in nextByViewport)) (nextByViewport as Record<string, unknown>).tablet = l;
+              if (!('mobile' in nextByViewport)) (nextByViewport as Record<string, unknown>).mobile = l;
+            }
             return {
               ...b,
               attributes: {
                 ...b.attributes,
-                layout: l,
+                layoutByViewport: nextByViewport,
                 gridColumnSpan: l.w,
                 gridColumnStart: l.x + 1,
               },
@@ -847,14 +954,14 @@ export default function App() {
       const dropY = droppedLayout.y;
       const sortedIndices = doc.blocks
         .map((b, i) => {
-          const ly = (b.attributes?.layout as { y?: number })?.y ?? 0;
+          const ly = ((b.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { y?: number } | undefined)?.y ?? 0;
           return { i, y: ly };
         })
         .sort((a, b) => a.y - b.y);
       const insertIdx = sortedIndices.findIndex(({ y }) => y >= dropY);
       const i = insertIdx >= 0 ? sortedIndices[insertIdx]!.i : doc.blocks.length;
       const newBlocks = [...doc.blocks.slice(0, i), block, ...doc.blocks.slice(i)];
-      const layout = getLayoutItems(newBlocks);
+      const layout = getLayoutItems(newBlocks, viewport);
       const compacted = compactLayoutVertical(layout.map((item, idx) => ({ ...item, y: idx * 100 })));
       const updates = new Map(compacted.map((item) => [item.i, { x: item.x, y: item.y, w: item.w, h: item.h }]));
       updateDoc((d) => ({
@@ -862,11 +969,18 @@ export default function App() {
         blocks: newBlocks.map((b) => {
           const l = updates.get(b.id);
           if (!l) return b;
+          const existingByViewport = (b.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+          const nextByViewport = { ...existingByViewport, [viewport]: l };
+          if (b.id === id) {
+            if (!('desktop' in nextByViewport)) (nextByViewport as Record<string, unknown>).desktop = l;
+            if (!('tablet' in nextByViewport)) (nextByViewport as Record<string, unknown>).tablet = l;
+            if (!('mobile' in nextByViewport)) (nextByViewport as Record<string, unknown>).mobile = l;
+          }
           return {
             ...b,
             attributes: {
               ...b.attributes,
-              layout: l,
+              layoutByViewport: nextByViewport,
               gridColumnSpan: l.w,
               gridColumnStart: l.x + 1,
             },
@@ -875,7 +989,7 @@ export default function App() {
       }));
       setSelectedBlockId(id);
     },
-    [doc.blocks, updateDoc]
+    [doc.blocks, updateDoc, viewport]
   );
 
   const handleLayoutChange = useCallback(
@@ -889,13 +1003,34 @@ export default function App() {
     (layouts: { lg: Array<{ i: string; x: number; y: number; w: number; h: number }> }) => {
       const lg = layouts.lg;
       if (!lg || !currentPage) return;
-      const updates = new Map(lg.map((item) => [item.i, { layout: { x: item.x, y: item.y, w: item.w, h: item.h }, gridColumnSpan: item.w, gridColumnStart: item.x + 1 }]));
+      const updates = new Map(
+        lg.map((item) => [
+          item.i,
+          {
+            layoutByViewportPatch: { x: item.x, y: item.y, w: item.w, h: item.h },
+            gridColumnSpan: item.w,
+            gridColumnStart: item.x + 1,
+          },
+        ])
+      );
       const orderByY = new Map(lg.map((item) => [item.i, { y: item.y, x: item.x, sortKey: item.y * 1000 + item.x }]));
       updateDoc((d) => {
         const updated = d.blocks.map((b) => {
           const attrs = updates.get(b.id);
           if (!attrs) return b;
-          return { ...b, attributes: { ...b.attributes, ...attrs } };
+          const existingByViewport = (b.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+          return {
+            ...b,
+            attributes: {
+              ...b.attributes,
+              layoutByViewport: {
+                ...existingByViewport,
+                [viewport]: attrs.layoutByViewportPatch,
+              },
+              gridColumnSpan: attrs.gridColumnSpan,
+              gridColumnStart: attrs.gridColumnStart,
+            },
+          };
         });
         const sorted = [...updated].sort((a, b) => {
           const keyA = orderByY.get(a.id)?.sortKey ?? 0;
@@ -905,7 +1040,7 @@ export default function App() {
         return { ...d, blocks: sorted };
       });
     },
-    [currentPage, updateDoc]
+    [currentPage, updateDoc, viewport]
   );
 
   const openStorefront = useCallback(() => {
@@ -1124,6 +1259,7 @@ export default function App() {
                 <GridCanvas
                   blocks={doc.blocks}
                   selectedBlockId={selectedBlockId}
+                  viewport={viewport}
                   onSelectBlock={setSelectedBlockId}
                   onUpdateBlock={updateBlock}
                   onTransientUpdateBlock={updateBlockTransient}
@@ -1351,7 +1487,7 @@ export default function App() {
 
             const parentInfo = findBlockInTree(doc.blocks, blockId);
             if (!parentInfo) {
-              const layout = found.attributes?.layout as { h?: number } | undefined;
+              const layout = ((found.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
               return (layout?.h ?? 2) * 40;
             }
 
@@ -1362,13 +1498,13 @@ export default function App() {
               return (parentHeightPx * hPct) / 100;
             }
 
-            const layout = found.attributes?.layout as { h?: number } | undefined;
+            const layout = ((found.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
             return (layout?.h ?? 2) * 40;
           };
 
           const layerParentHeightPx = isLayerChildSelected && parentForm ? computeHeightPxById(parentForm.id) : 0;
 
-          const layout = block.attributes?.layout as { w?: number; x?: number } | undefined;
+          const layout = ((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { w?: number; x?: number } | undefined) ?? undefined;
           const topGridColumnSpan = layout?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12;
           const topGridColumnStart = layout?.x != null ? layout.x + 1 : ((block.attributes?.gridColumnStart as number) ?? 1);
 
@@ -1448,6 +1584,7 @@ export default function App() {
                 block={block}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
+                viewport={viewport}
                 onMoveUp={isNestedField && parentForm
                   ? (() => {
                       if (!nestedContainer) return undefined;
@@ -1506,11 +1643,14 @@ export default function App() {
                       }
                     : (span, start) =>
                         handleUpdate({
-                          layout: {
-                            ...(block.attributes?.layout as object || {}),
-                            x: start - 1,
-                            w: span,
-                            h: (block.attributes?.layout as { h?: number })?.h ?? 2,
+                          layoutByViewport: {
+                            ...((block.attributes?.layoutByViewport as object) || {}),
+                            [viewport]: {
+                              ...((((block.attributes?.layoutByViewport as Record<string, unknown> | undefined) ?? {})[viewport] as object) || {}),
+                              x: start - 1,
+                              w: span,
+                              h: (((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined)?.h ?? 2),
+                            },
                           },
                           gridColumnSpan: span,
                           gridColumnStart: start,

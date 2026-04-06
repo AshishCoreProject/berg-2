@@ -3,6 +3,7 @@ import type { PageDocument, StoredPage } from '@berg/schema';
 import { loadStore, saveStore, parseHashPayload, PAGES_STORAGE_KEY } from '@/lib';
 import { SiteHeader, SiteFooter } from '@/components/layout';
 import { BlockRenderer, ProductDetailPage, CollectionDetailPage } from '@/components/blocks';
+import { resolveGridLayout, useStorefrontViewport } from '@berg/blocks';
 import './App.css';
 
 function getPathRoute(): { slug: string | null; productHandle: string | null; collectionHandle: string | null } {
@@ -251,11 +252,12 @@ export default function App() {
 function PageContent({ page, apiBaseUrl, useDemoData }: { page: StoredPage; apiBaseUrl?: string; useDemoData?: boolean }) {
   const doc = page.document;
   const { meta, blocks } = doc;
+  const layoutViewport = useStorefrontViewport();
 
   // Match builder order: render blocks sorted by layout position (y then x)
   const sortedBlocks = [...blocks].sort((a, b) => {
-    const layoutA = (a.attributes?.layout as { y?: number; x?: number } | undefined);
-    const layoutB = (b.attributes?.layout as { y?: number; x?: number } | undefined);
+    const layoutA = resolveGridLayout(a.attributes as Record<string, unknown> | undefined, layoutViewport);
+    const layoutB = resolveGridLayout(b.attributes as Record<string, unknown> | undefined, layoutViewport);
     const yA = layoutA && typeof layoutA.y === 'number' ? layoutA.y : 0;
     const yB = layoutB && typeof layoutB.y === 'number' ? layoutB.y : 0;
     if (yA !== yB) return yA - yB;
@@ -278,7 +280,7 @@ function PageContent({ page, apiBaseUrl, useDemoData }: { page: StoredPage; apiB
           <div className="storefront-blocks storefront-grid-12">
             {sortedBlocks.map((block) => {
               const attrs = block.attributes ?? {};
-              const layout = attrs.layout as { h?: number; x?: number; y?: number; w?: number } | undefined;
+              const layout = resolveGridLayout(attrs as Record<string, unknown>, layoutViewport);
               const span = Math.min(12, Math.max(1, (attrs.gridColumnSpan as number) ?? layout?.w ?? 12));
               const start = Math.min(12, Math.max(1, (attrs.gridColumnStart as number) ?? (layout?.x != null ? layout.x + 1 : 1)));
               const fullBleed = !!(block.attributes?.fullBleed as boolean);
@@ -310,10 +312,10 @@ function PageContent({ page, apiBaseUrl, useDemoData }: { page: StoredPage; apiB
                 >
                   {fullBleed ? (
                     <div className="storefront-full-bleed-inner">
-                      <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+                      <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
                     </div>
                   ) : (
-                    <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+                    <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
                   )}
                 </div>
               );

@@ -1,6 +1,6 @@
 /**
- * Viewport switcher: Desktop (960px), Tablet (768px), Mobile (375px).
- * Lets users preview the builder canvas at different breakpoints.
+ * Viewport switcher: Desktop (1460px), Tablet (768px), Mobile (390px).
+ * Mobile width matches common phone logical widths so CSS (e.g. product grid minmax) matches real devices.
  */
 
 export type Viewport = 'desktop' | 'tablet' | 'mobile';
@@ -8,7 +8,7 @@ export type Viewport = 'desktop' | 'tablet' | 'mobile';
 export const VIEWPORT_WIDTHS: Record<Viewport, number> = {
   desktop: 1460,
   tablet: 768,
-  mobile: 576,
+  mobile: 390,
 };
 
 interface Props {

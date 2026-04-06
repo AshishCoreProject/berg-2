@@ -7,10 +7,12 @@ import { BLOCK_DRAG_TYPE } from './BlockInserter';
 import { ResizableSpacer } from '@/components/canvas';
 import { TextEditor } from '@/components/controls';
 import './BlockPreview.css';
+import type { Viewport } from '@/components/canvas/ViewportSwitcher';
 
 interface Props {
   block: Block;
   isSelected: boolean;
+  viewport: Viewport;
   onSelect: () => void;
   onUpdate: (attrs: Record<string, unknown>) => void;
   onTransientUpdate?: (attrs: Record<string, unknown>) => void;
@@ -54,6 +56,7 @@ interface Props {
 export function BlockEditor({
   block,
   isSelected,
+  viewport,
   onSelect,
   onUpdate,
   onTransientUpdate,
@@ -581,10 +584,14 @@ export function BlockEditor({
             <ResizableSpacer
               value={height}
               onChange={(v) => {
-                const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
+                const existingByViewport = (attrs.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+                const currentLayout = (existingByViewport[viewport] as Record<string, unknown> | undefined) ?? {};
                 onUpdate({
                   height: v,
-                  layout: { ...layout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                  layoutByViewport: {
+                    ...existingByViewport,
+                    [viewport]: { ...currentLayout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                  },
                 });
               }}
               min={20}
@@ -1011,7 +1018,7 @@ export function BlockEditor({
   const showToolbarInCanvas = !toolbarInSidebar && (isHover || isSelected);
 
   /** Height in px from layout – applied to block-main so sidebar Height = actual block height */
-  const layout = attrs.layout as { h?: number } | undefined;
+  const layout = ((attrs.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
   const layoutHeightPx = (layout?.h ?? 2) * 40;
   const blockMainStyle = isLayerChild
     ? { height: '100%', minHeight: '100%' }
@@ -1305,6 +1312,7 @@ export function BlockEditor({
                     <BlockEditor
                       block={child}
                       isSelected={childSelected}
+                      viewport={viewport}
                       onSelect={() => onSelectNestedBlock?.(child.id)}
                       onUpdate={(attrs) => updateLayerChild(child.id, attrs)}
                       onDelete={() => deleteLayerChild(child.id)}

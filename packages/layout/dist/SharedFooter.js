@@ -3,13 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { buildDefaultFooterLinks, isInternalUrl, normalizeFooterConfig, toHeaderFooterCss, toLinkCss, useViewportMatch, } from "./utils";
 function FooterLink({ link, linkCss, onNavigate, className, }) {
     const internal = isInternalUrl(link.url);
-    const themedFooterClasses = [
-        "site-footer-link",
-        "site-footer-cta",
-        "site-footer-bottom-link",
-    ];
-    const shouldUseInlineColor = !themedFooterClasses.some((cls) => className.includes(cls));
-    return (_jsx("a", { href: link.url, className: className, style: shouldUseInlineColor && linkCss.color ? linkCss : undefined, target: link.openInNewTab ? "_blank" : undefined, rel: link.openInNewTab ? "noopener noreferrer" : undefined, onClick: (e) => {
+    return (_jsx("a", { href: link.url, className: className, style: linkCss.color ? linkCss : undefined, target: link.openInNewTab ? "_blank" : undefined, rel: link.openInNewTab ? "noopener noreferrer" : undefined, onClick: (e) => {
             if (!internal || !onNavigate)
                 return;
             if (link.url.startsWith("/")) {
@@ -21,7 +15,10 @@ function FooterLink({ link, linkCss, onNavigate, className, }) {
 export function SharedFooter({ siteTitle, pages, homeSlug, onNavigate, footerStyle, hiddenFromHeader, footerLinks, viewportMode = "auto", className, }) {
     const currentYear = new Date().getFullYear();
     const footerCss = toHeaderFooterCss(footerStyle);
-    const linkCss = toLinkCss(footerStyle);
+    const linkCss = toLinkCss({
+        ...footerStyle,
+        linkColor: footerStyle?.footerLinksColor ?? footerStyle?.linkColor,
+    });
     const isMobile = useViewportMatch(viewportMode, 900);
     const cfgRaw = footerLinks?.columns?.length
         ? footerLinks

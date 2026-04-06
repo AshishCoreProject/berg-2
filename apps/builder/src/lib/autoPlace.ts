@@ -12,6 +12,9 @@ export interface GridLayout {
 
 export type LayoutItem = { i: string; x: number; y: number; w: number; h: number; minW?: number; minH?: number };
 
+export type Viewport = 'desktop' | 'tablet' | 'mobile';
+type LayoutByViewport = Partial<Record<Viewport, GridLayout>>;
+
 /**
  * Puzzle-style compaction: stack blocks with no gaps and no overlaps.
  * When you increase a block's height, blocks below move down. When you decrease it, they move up.
@@ -51,9 +54,13 @@ function getMinHeightForType(_blockType: string): number {
 }
 
 /** Build layout items for react-grid-layout from blocks. */
-export function getLayoutItems(blocks: { id: string; type?: string; attributes?: Record<string, unknown> }[]): LayoutItem[] {
+export function getLayoutItems(
+  blocks: { id: string; type?: string; attributes?: Record<string, unknown> }[],
+  viewport: Viewport = 'desktop'
+): LayoutItem[] {
   return blocks.map((b, i) => {
-    const layout = b.attributes?.layout as GridLayout | undefined;
+    const byViewport = (b.attributes?.layoutByViewport as LayoutByViewport | undefined) ?? undefined;
+    const layout = byViewport?.[viewport] as GridLayout | undefined;
     const hasLayout = layout && typeof layout.x === 'number' && typeof layout.y === 'number';
     const w = hasLayout ? (layout.w ?? 12) : ((b.attributes?.gridColumnSpan as number) ?? 12);
     const x = hasLayout ? layout.x : ((b.attributes?.gridColumnStart as number) ?? 1) - 1;
@@ -70,12 +77,14 @@ export function getLayoutItems(blocks: { id: string; type?: string; attributes?:
 export function autoPlace(
   blocks: { id: string; type?: string; attributes?: Record<string, unknown> }[],
   w = 12,
-  h = 2
+  h = 2,
+  viewport: Viewport = 'desktop'
 ): GridLayout {
   if (!blocks.length) return { x: 0, y: 0, w, h, minW: 1, minH: 1 };
   let maxY = 0;
   blocks.forEach((b, i) => {
-    const layout = (b.attributes?.layout as GridLayout | undefined);
+    const byViewport = (b.attributes?.layoutByViewport as LayoutByViewport | undefined) ?? undefined;
+    const layout = byViewport?.[viewport] as GridLayout | undefined;
     const hasLayout = layout && typeof layout.x === 'number' && typeof layout.y === 'number';
     const y = hasLayout ? layout.y : i * 2;
     const defaultH = getDefaultHeightForType(b.type ?? '');
