@@ -11,12 +11,20 @@ export interface StyleOverrides {
     linkColor?: string;
     borderRadius?: string;
     padding?: string;
+    /** Header cart icon visibility (default true). */
+    showCartIcon?: boolean;
+    /** Cart icon stroke color (optional; falls back to link color). */
+    cartIconColor?: string;
 }
 /** Full store data: pages + site settings. Persisted to localStorage or API. */
 export interface StoreData extends PagesStore {
     siteTitle?: string;
     homeSlug?: string;
     apiBaseUrl?: string;
+    /** Cart/checkout API tenant id (sent as tenant_id query param). */
+    tenantId?: string;
+    /** Cart/checkout API: sent as store_id query param when using cart-checkout-plugin API mode. */
+    storeId?: string;
     theme?: 'light' | 'dark';
     accentColor?: string;
     useDemoData?: boolean;

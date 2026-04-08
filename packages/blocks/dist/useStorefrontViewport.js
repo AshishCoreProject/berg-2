@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 /** Matches builder preview: mobile 576, tablet 768 (see ViewportSwitcher VIEWPORT_WIDTHS). */
-const MQ_MOBILE = "(max-width: 376px)";
+const MQ_MOBILE = "(max-width: 476px)";
 const MQ_TABLET = "(min-width: 577px) and (max-width: 768px)";
 function resolveViewport() {
     if (typeof window === "undefined")

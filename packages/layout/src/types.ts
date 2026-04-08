@@ -37,6 +37,14 @@ export type HeaderFooterStyle = {
    * Optional logo height in pixels.
    */
   logoHeightPx?: number;
+  /**
+   * Show cart icon in the header (storefront + builder preview). Defaults to true when undefined.
+   */
+  showCartIcon?: boolean;
+  /**
+   * Cart SVG stroke color. Falls back to linkColor, then color, then theme accent.
+   */
+  cartIconColor?: string;
 };
 
 export type ViewportMode = 'auto' | 'desktop' | 'mobile';

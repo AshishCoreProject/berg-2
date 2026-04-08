@@ -1,5 +1,6 @@
 import type { StoredPage } from '@berg/schema';
 import { SharedHeader, type HeaderFooterStyle } from '@berg/layout';
+import { StorefrontCartHeader } from '@/components/header/StorefrontCartHeader';
 
 interface Props {
   siteTitle: string;
@@ -22,6 +23,7 @@ export function SiteHeader({ siteTitle, pages, currentSlug, homeSlug, onNavigate
       headerStyle={headerStyle}
       hiddenFromHeader={hiddenFromHeader}
       viewportMode="auto"
+      rightSlot={<StorefrontCartHeader headerStyle={headerStyle} onNavigate={onNavigate} />}
     />
   );
 }

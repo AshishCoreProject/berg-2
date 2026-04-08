@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useCart } from '@storefront-ui-plugin/cart-checkout-plugin';
 import { getDemoProductByHandle } from '@berg/blocks';
 
 interface ProductDetailPageProps {
@@ -8,17 +9,44 @@ interface ProductDetailPageProps {
   onNavigate: (path: string) => void;
 }
 
+type LoadedProduct = {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  image?: string;
+  images?: string[];
+  handle: string;
+};
+
+const MAX_QTY = 99;
+
+function normalizeImages(p: LoadedProduct): string[] {
+  if (p.images?.length) return p.images;
+  if (p.image) return [p.image];
+  return [];
+}
+
 export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, onNavigate }: ProductDetailPageProps) {
-  const [product, setProduct] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    price: number;
-    image?: string;
-    handle: string;
-  } | null>(null);
+  const { addItem } = useCart();
+  const [addedFeedback, setAddedFeedback] = useState(false);
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [product, setProduct] = useState<LoadedProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    setQuantity(1);
+    setSelectedIndex(0);
+  }, [handle]);
 
   useEffect(() => {
     if (useDemoData) {
@@ -40,12 +68,17 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, onNavigate 
         return res.json();
       })
       .then((data) => {
+        const rawImages = data.images;
+        const images = Array.isArray(rawImages) && rawImages.length
+          ? rawImages.filter((u: unknown) => typeof u === 'string')
+          : undefined;
         setProduct({
           id: data.id,
           title: data.title,
           description: data.description,
           price: data.price ?? 0,
           image: data.image,
+          images,
           handle: data.handle ?? data.id,
         });
       })
@@ -69,22 +102,92 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, onNavigate 
     );
   }
 
+  const images = normalizeImages(product);
+  const safeIndex = Math.min(selectedIndex, Math.max(0, images.length - 1));
+  const mainSrc = images[safeIndex];
+  const showGalleryStrip = images.length > 1;
+
+  const line = { id: String(product.id), name: product.title, price: product.price };
+
+  const handleAddToCart = () => {
+    addItem(line, quantity);
+    setAddedFeedback(true);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => {
+      setAddedFeedback(false);
+      addedTimerRef.current = null;
+    }, 2000);
+  };
+
+  const handleBuyNow = () => {
+    addItem(line, quantity);
+    onNavigate('/cart');
+  };
+
+  const decQty = () => setQuantity((q) => Math.max(1, q - 1));
+  const incQty = () => setQuantity((q) => Math.min(MAX_QTY, q + 1));
+
   return (
     <main className="storefront product-detail" role="main">
       <article className="product-detail-article">
         <a href="/products" onClick={(e) => { e.preventDefault(); onNavigate('/products'); }} className="product-detail-back">← All products</a>
         <div className="product-detail-layout">
-          {product.image && (
-            <div className="product-detail-image">
-              <img src={product.image} alt={product.title} />
+          <div className="product-detail-gallery">
+            <div className="product-detail-gallery-main product-detail-image">
+              {mainSrc ? (
+                <img src={mainSrc} alt={product.title} />
+              ) : (
+                <div className="product-detail-image-placeholder" aria-hidden />
+              )}
             </div>
-          )}
+            {showGalleryStrip && (
+              <div
+                className="product-detail-gallery-thumbs"
+                role="tablist"
+                aria-label="Product images"
+              >
+                {images.map((src, i) => (
+                  <button
+                    key={`${src}-${i}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === safeIndex}
+                    aria-label={`View image ${i + 1} of ${images.length}`}
+                    className={`product-detail-gallery-thumb${i === safeIndex ? ' is-selected' : ''}`}
+                    onClick={() => setSelectedIndex(i)}
+                  >
+                    <img src={src} alt="" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="product-detail-info">
             <h1 className="product-detail-title">{product.title}</h1>
             <div className="product-detail-price">${product.price.toFixed(2)}</div>
             {product.description && (
               <p className="product-detail-description">{product.description}</p>
             )}
+            <div className="product-detail-quantity">
+              <span className="product-detail-quantity-label" id="pdp-qty-label">Quantity</span>
+              <div className="product-detail-quantity-controls" role="group" aria-labelledby="pdp-qty-label">
+                <button type="button" className="product-detail-qty-btn" onClick={decQty} aria-label="Decrease quantity">
+                  −
+                </button>
+                <span className="product-detail-qty-value" aria-live="polite">{quantity}</span>
+                <button type="button" className="product-detail-qty-btn" onClick={incQty} aria-label="Increase quantity">
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="product-detail-actions">
+              <button type="button" className="product-detail-btn product-detail-btn-primary" onClick={handleAddToCart}>
+                {addedFeedback ? 'Added' : 'Add to cart'}
+              </button>
+              <button type="button" className="product-detail-btn product-detail-btn-secondary" onClick={handleBuyNow}>
+                Buy now
+              </button>
+            </div>
           </div>
         </div>
       </article>

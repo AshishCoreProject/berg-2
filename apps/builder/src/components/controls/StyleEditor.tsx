@@ -14,6 +14,8 @@ export interface StyleValues {
   logoTextGap?: string;
   logoWidthPx?: number;
   logoHeightPx?: number;
+  showCartIcon?: boolean;
+  cartIconColor?: string;
   borderRadius?: string;
   padding?: string;
   boxShadow?: string;
@@ -356,6 +358,39 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
               }}
               placeholder="32"
             />
+          </label>
+          <label className="style-editor-row">
+            <span>Show cart icon</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={values.showCartIcon !== false}
+                onChange={(e) => setBoolean("showCartIcon", e.target.checked)}
+              />
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                Cart link in header (opens /cart)
+              </span>
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Cart icon color</span>
+            <div className="style-editor-color">
+              <input
+                type="color"
+                value={values.cartIconColor || values.linkColor || "#94a3b8"}
+                onChange={(e) => set("cartIconColor", e.target.value)}
+                title="Cart icon color"
+              />
+              <input
+                type="text"
+                value={values.cartIconColor ?? ""}
+                onChange={(e) =>
+                  set("cartIconColor", e.target.value.trim() || undefined)
+                }
+                placeholder={values.linkColor || "uses link color"}
+                className="style-hex"
+              />
+            </div>
           </label>
         </>
       )}

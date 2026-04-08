@@ -5,12 +5,18 @@ type ButtonStyle = { backgroundColor?: string; color?: string; fontFamily?: stri
 interface Props {
   siteTitle: string;
   apiBaseUrl: string;
+  /** Cart API tenant id (query param). */
+  tenantId: string;
+  /** Cart API store_id (query param); optional if backend infers from tenant. */
+  storeId: string;
   theme: 'light' | 'dark';
   accentColor: string;
   useDemoData: boolean;
   buttonStyle: ButtonStyle;
   onSiteTitleChange: (value: string) => void;
   onApiBaseUrlChange: (value: string) => void;
+  onTenantIdChange: (value: string) => void;
+  onStoreIdChange: (value: string) => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onAccentColorChange: (value: string) => void;
   onUseDemoDataChange: (value: boolean) => void;
@@ -30,12 +36,16 @@ const ACCENT_PRESETS = [
 export function SiteSettings({
   siteTitle,
   apiBaseUrl,
+  tenantId,
+  storeId,
   theme,
   accentColor,
   useDemoData,
   buttonStyle,
   onSiteTitleChange,
   onApiBaseUrlChange,
+  onTenantIdChange,
+  onStoreIdChange,
   onThemeChange,
   onAccentColorChange,
   onUseDemoDataChange,
@@ -110,6 +120,30 @@ export function SiteSettings({
         />
       </label>
       <p className="site-settings-hint">Product/Collection blocks fetch from this endpoint.</p>
+
+      <label>
+        <span>Tenant ID (cart API)</span>
+        <input
+          type="text"
+          value={tenantId}
+          onChange={(e) => onTenantIdChange(e.target.value)}
+          placeholder="e.g. 86882b22-a67f-4f7f-b91f-0d3e725b25fd"
+        />
+      </label>
+      <p className="site-settings-hint">Sent as <code>tenant_id</code> to cart and checkout endpoints when API URL is set.</p>
+
+      <label>
+        <span>Store ID (cart API)</span>
+        <input
+          type="text"
+          value={storeId}
+          onChange={(e) => onStoreIdChange(e.target.value)}
+          placeholder="e.g. storefront-1"
+        />
+      </label>
+      <p className="site-settings-hint">
+        Sent as <code>store_id</code> to cart and checkout endpoints when API URL is set. Leave empty to use your home page slug.
+      </p>
 
       <label className="site-settings-checkbox">
         <input

@@ -26,6 +26,8 @@ function parseStore(raw) {
         siteTitle: store.siteTitle,
         homeSlug: store.homeSlug,
         apiBaseUrl: store.apiBaseUrl,
+        tenantId: store.tenantId,
+        storeId: store.storeId,
         theme: store.theme,
         accentColor: store.accentColor,
         useDemoData: store.useDemoData,

@@ -218,6 +218,20 @@ export default function App() {
     [persistStore]
   );
 
+  const setTenantId = useCallback(
+    (tenantId: string) => {
+      persistStore((prev) => ({ ...prev, tenantId: tenantId.trim() || undefined }));
+    },
+    [persistStore]
+  );
+
+  const setStoreId = useCallback(
+    (storeId: string) => {
+      persistStore((prev) => ({ ...prev, storeId: storeId.trim() || undefined }));
+    },
+    [persistStore]
+  );
+
   const setTheme = useCallback(
     (theme: 'light' | 'dark') => {
       persistStore((prev) => ({ ...prev, theme }));
@@ -1053,6 +1067,8 @@ export default function App() {
       siteTitle: store.siteTitle,
       homeSlug: store.homeSlug,
       apiBaseUrl: store.apiBaseUrl,
+      tenantId: store.tenantId,
+      storeId: store.storeId,
       theme: store.theme,
       accentColor: store.accentColor,
       useDemoData: store.useDemoData,
@@ -1066,7 +1082,23 @@ export default function App() {
     const hash = encodeHashPayload(payload);
     const targetPath = currentPage?.slug === store.homeSlug ? '/' : `/${currentPage?.slug || ''}`;
     window.open(`${base}${targetPath}#${hash}`, '_blank');
-  }, [pages, store.siteTitle, store.homeSlug, store.theme, store.accentColor, store.useDemoData, currentPage?.slug]);
+  }, [
+    pages,
+    store.siteTitle,
+    store.homeSlug,
+    store.apiBaseUrl,
+    store.tenantId,
+    store.storeId,
+    store.theme,
+    store.accentColor,
+    store.useDemoData,
+    store.headerStyle,
+    store.footerStyle,
+    store.footerLinks,
+    store.buttonStyle,
+    store.hiddenFromHeader,
+    currentPage?.slug,
+  ]);
 
   const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
@@ -1142,12 +1174,16 @@ export default function App() {
               <SiteSettings
                 siteTitle={store.siteTitle ?? ''}
                 apiBaseUrl={store.apiBaseUrl ?? ''}
+                tenantId={store.tenantId ?? ''}
+                storeId={store.storeId ?? ''}
                 theme={store.theme ?? 'dark'}
                 accentColor={store.accentColor ?? '#3b82f6'}
                 useDemoData={store.useDemoData ?? false}
                 buttonStyle={store.buttonStyle ?? {}}
                 onSiteTitleChange={setSiteTitle}
                 onApiBaseUrlChange={setApiBaseUrl}
+                onTenantIdChange={setTenantId}
+                onStoreIdChange={setStoreId}
                 onThemeChange={setTheme}
                 onAccentColorChange={setAccentColor}
                 onUseDemoDataChange={setUseDemoData}

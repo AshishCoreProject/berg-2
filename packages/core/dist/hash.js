@@ -31,6 +31,8 @@ export function parseHashPayload(hash) {
             siteTitle: data.siteTitle,
             homeSlug: data.homeSlug,
             apiBaseUrl: data.apiBaseUrl,
+            tenantId: data.tenantId,
+            storeId: data.storeId,
             theme: data.theme,
             accentColor: data.accentColor,
             useDemoData: data.useDemoData,

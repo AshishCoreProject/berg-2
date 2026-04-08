@@ -1,20 +1,54 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { CartProvider } from '@storefront-ui-plugin/cart-checkout-plugin';
 import type { PageDocument, StoredPage } from '@berg/schema';
 import { loadStore, saveStore, parseHashPayload, PAGES_STORAGE_KEY } from '@/lib';
 import { SiteHeader, SiteFooter } from '@/components/layout';
-import { BlockRenderer, ProductDetailPage, CollectionDetailPage } from '@/components/blocks';
+import { CartPage } from '@/components/cart/CartPage';
+import { CheckoutPage } from '@/components/checkout/CheckoutPage';
+import { CheckoutSuccessPage } from '@/components/checkout/CheckoutSuccessPage';
+import { BlockRenderer, ProductDetailPage, CollectionDetailPage, ProductListingPage } from '@/components/blocks';
 import { resolveGridLayout, useStorefrontViewport } from '@berg/blocks';
 import './App.css';
 
-function getPathRoute(): { slug: string | null; productHandle: string | null; collectionHandle: string | null } {
+function getPathRoute(): {
+  slug: string | null;
+  productHandle: string | null;
+  collectionHandle: string | null;
+  system: 'cart' | 'checkout' | 'checkoutSuccess' | null;
+  productCatalog: boolean;
+} {
   const path = window.location.pathname;
-  if (path === '/' || path === '') return { slug: null, productHandle: null, collectionHandle: null };
+  if (path === '/' || path === '') {
+    return { slug: null, productHandle: null, collectionHandle: null, system: null, productCatalog: false };
+  }
+  if (path === '/cart' || path === '/cart/') {
+    return { slug: null, productHandle: null, collectionHandle: null, system: 'cart', productCatalog: false };
+  }
+  if (path === '/checkout' || path === '/checkout/') {
+    return { slug: null, productHandle: null, collectionHandle: null, system: 'checkout', productCatalog: false };
+  }
+  if (path === '/checkout/success' || path === '/checkout/success/') {
+    return { slug: null, productHandle: null, collectionHandle: null, system: 'checkoutSuccess', productCatalog: false };
+  }
+  if (path === '/products' || path === '/products/') {
+    return { slug: null, productHandle: null, collectionHandle: null, system: null, productCatalog: true };
+  }
   const productsMatch = path.match(/^\/products\/([^/]+)\/?$/);
-  if (productsMatch) return { slug: null, productHandle: productsMatch[1], collectionHandle: null };
+  if (productsMatch) {
+    return { slug: null, productHandle: productsMatch[1], collectionHandle: null, system: null, productCatalog: false };
+  }
   const collectionsMatch = path.match(/^\/collections\/([^/]+)\/?$/);
-  if (collectionsMatch) return { slug: null, productHandle: null, collectionHandle: collectionsMatch[1] };
+  if (collectionsMatch) {
+    return {
+      slug: null,
+      productHandle: null,
+      collectionHandle: collectionsMatch[1],
+      system: null,
+      productCatalog: false,
+    };
+  }
   const slug = path.slice(1).replace(/\/$/, '');
-  return { slug: slug || null, productHandle: null, collectionHandle: null };
+  return { slug: slug || null, productHandle: null, collectionHandle: null, system: null, productCatalog: false };
 }
 
 /** Parse spacing value to px; used for cell height (margin creates gap). */
@@ -46,6 +80,26 @@ function getHomePage(pages: StoredPage[], homeSlug?: string): StoredPage | null 
   return published[0];
 }
 
+function StorefrontCartProvider({
+  tenantId,
+  apiBaseUrl,
+  storeId,
+  children,
+}: {
+  tenantId: string;
+  /** When set, cart-checkout-plugin uses server cart APIs (guest session, view, add, …). */
+  apiBaseUrl?: string;
+  /** Required for API query params; defaults from store when unset. */
+  storeId?: string;
+  children: ReactNode;
+}) {
+  return (
+    <CartProvider tenantId={tenantId} apiBaseUrl={apiBaseUrl} storeId={storeId}>
+      {children}
+    </CartProvider>
+  );
+}
+
 export default function App() {
   // Initialize: check for hash payload first, then set route
   const [route, setRoute] = useState(() => {
@@ -60,6 +114,8 @@ export default function App() {
         siteTitle: payload.siteTitle ?? existing.siteTitle,
         homeSlug: payload.homeSlug ?? existing.homeSlug,
         apiBaseUrl: payload.apiBaseUrl ?? existing.apiBaseUrl,
+        tenantId: payload.tenantId ?? existing.tenantId,
+        storeId: payload.storeId ?? existing.storeId,
         theme: payload.theme ?? existing.theme,
         accentColor: payload.accentColor ?? existing.accentColor,
         useDemoData: payload.useDemoData ?? existing.useDemoData,
@@ -74,7 +130,9 @@ export default function App() {
       const target = openSlug && openSlug !== updatedStore.homeSlug ? `/${openSlug}` : '/';
       // Clear hash immediately
       window.history.replaceState(null, '', target);
-      return openSlug && openSlug !== updatedStore.homeSlug ? { slug: openSlug, productHandle: null, collectionHandle: null } : { slug: null, productHandle: null, collectionHandle: null };
+      return openSlug && openSlug !== updatedStore.homeSlug
+        ? { slug: openSlug, productHandle: null, collectionHandle: null, system: null, productCatalog: false }
+        : { slug: null, productHandle: null, collectionHandle: null, system: null, productCatalog: false };
     }
     return getPathRoute();
   });
@@ -129,6 +187,9 @@ export default function App() {
   const currentSlug = route.slug ?? null;
   const productHandle = route.productHandle ?? null;
   const collectionHandle = route.collectionHandle ?? null;
+  const productCatalog = route.productCatalog ?? false;
+  const system = route.system ?? null;
+  const headerCurrentSlug = system ? '__system__' : currentSlug;
   const currentPage = currentSlug
     ? publishedPages.find((p) => p.slug === currentSlug) ?? null
     : homePage;
@@ -143,20 +204,170 @@ export default function App() {
   }
 
   const siteName = siteTitle?.trim() || (homePage?.document.meta?.title ?? 'Site');
+  const cartTenantId = store.tenantId?.trim() || homeSlug || 'default';
+  const cartApiUrl = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_CART_API_BASE_URL?.trim() || undefined;
+  const cartStoreId = cartApiUrl ? (store.storeId?.trim() || homeSlug || 'default') : undefined;
+  const cartApiConfigured = Boolean(cartApiUrl && cartTenantId && cartStoreId);
+  const [cartApiEnabled, setCartApiEnabled] = useState(cartApiConfigured);
+  const [cartApiFallbackReason, setCartApiFallbackReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCartApiEnabled(cartApiConfigured);
+    setCartApiFallbackReason(null);
+  }, [cartApiConfigured, cartApiUrl, cartTenantId, cartStoreId]);
+
+  const handleCartApiFailure = (reason: string) => {
+    if (!cartApiConfigured) return;
+    setCartApiEnabled(false);
+    setCartApiFallbackReason(reason);
+  };
+
+  const handleCartApiRetry = () => {
+    if (!cartApiConfigured) return;
+    setCartApiFallbackReason(null);
+    setCartApiEnabled(true);
+  };
 
   const navigate = (path: string) => {
     window.history.pushState(null, '', path);
     setRoute(getPathRoute());
   };
 
-  if (collectionHandle) {
+  if (system === 'checkout') {
     return (
-      <>
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
             pages={publishedPages}
-            currentSlug={null}
+            currentSlug={headerCurrentSlug}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            headerStyle={store.headerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+          />
+          <CheckoutPage
+            onNavigate={navigate}
+            tenantId={cartTenantId}
+            storeId={cartStoreId}
+          />
+          <SiteFooter
+            siteTitle={siteName}
+            pages={publishedPages}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            footerStyle={store.footerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
+          />
+        </div>
+      </StorefrontCartProvider>
+    );
+  }
+
+  if (system === 'checkoutSuccess') {
+    return (
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
+        <div className="site-wrap">
+          <SiteHeader
+            siteTitle={siteName}
+            pages={publishedPages}
+            currentSlug={headerCurrentSlug}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            headerStyle={store.headerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+          />
+          <CheckoutSuccessPage onNavigate={navigate} />
+          <SiteFooter
+            siteTitle={siteName}
+            pages={publishedPages}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            footerStyle={store.footerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
+          />
+        </div>
+      </StorefrontCartProvider>
+    );
+  }
+
+  if (system === 'cart') {
+    return (
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
+        <div className="site-wrap">
+          <SiteHeader
+            siteTitle={siteName}
+            pages={publishedPages}
+            currentSlug={headerCurrentSlug}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            headerStyle={store.headerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+          />
+          <CartPage
+            onNavigate={navigate}
+            cartApiConfigured={cartApiConfigured}
+            cartApiEnabled={cartApiEnabled}
+            cartApiFallbackReason={cartApiFallbackReason}
+            onApiFailure={handleCartApiFailure}
+            onRetryApi={handleCartApiRetry}
+          />
+          <SiteFooter
+            siteTitle={siteName}
+            pages={publishedPages}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            footerStyle={store.footerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
+          />
+        </div>
+      </StorefrontCartProvider>
+    );
+  }
+
+  if (productCatalog) {
+    return (
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
+        <div className="site-wrap">
+          <SiteHeader
+            siteTitle={siteName}
+            pages={publishedPages}
+            currentSlug={headerCurrentSlug}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            headerStyle={store.headerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+          />
+          <ProductListingPage
+            apiBaseUrl={store.apiBaseUrl}
+            useDemoData={useDemoData}
+            onNavigate={navigate}
+          />
+          <SiteFooter
+            siteTitle={siteName}
+            pages={publishedPages}
+            homeSlug={homePage?.slug ?? ''}
+            onNavigate={navigate}
+            footerStyle={store.footerStyle}
+            hiddenFromHeader={store.hiddenFromHeader}
+            footerLinks={store.footerLinks}
+          />
+        </div>
+      </StorefrontCartProvider>
+    );
+  }
+
+  if (collectionHandle) {
+    return (
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
+        <div className="site-wrap">
+          <SiteHeader
+            siteTitle={siteName}
+            pages={publishedPages}
+            currentSlug={headerCurrentSlug}
             homeSlug={homePage?.slug ?? ''}
             onNavigate={navigate}
             headerStyle={store.headerStyle}
@@ -178,18 +389,18 @@ export default function App() {
             footerLinks={store.footerLinks}
           />
         </div>
-      </>
+      </StorefrontCartProvider>
     );
   }
 
   if (productHandle) {
     return (
-      <>
+      <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
             pages={publishedPages}
-            currentSlug={null}
+            currentSlug={headerCurrentSlug}
             homeSlug={homePage?.slug ?? ''}
             onNavigate={navigate}
             headerStyle={store.headerStyle}
@@ -211,17 +422,17 @@ export default function App() {
             footerLinks={store.footerLinks}
           />
         </div>
-      </>
+      </StorefrontCartProvider>
     );
   }
 
   return (
-    <>
+    <StorefrontCartProvider tenantId={cartTenantId} apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined} storeId={cartStoreId}>
       <div className="site-wrap">
         <SiteHeader
           siteTitle={siteName}
           pages={publishedPages}
-          currentSlug={currentSlug}
+          currentSlug={headerCurrentSlug}
           homeSlug={homePage?.slug ?? ''}
           onNavigate={navigate}
           headerStyle={store.headerStyle}
@@ -245,7 +456,7 @@ export default function App() {
           footerLinks={store.footerLinks}
         />
       </div>
-    </>
+    </StorefrontCartProvider>
   );
 }
 

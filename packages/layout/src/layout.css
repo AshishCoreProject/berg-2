@@ -354,3 +354,31 @@
     display: flex;
   }
 }
+
+/* Header cart (storefront + builder preview) */
+.site-header-cart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  /* border-radius: 10px; */
+  /* border: 1px solid var(--border-subtle); */
+  /* background: var(--surface); */
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.site-header-cart-btn:hover {
+  /* background: var(--accent-muted); */
+}
+
+.site-header-cart-svg {
+  display: block;
+  flex-shrink: 0;
+}

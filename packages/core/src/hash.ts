@@ -33,6 +33,8 @@ export function parseHashPayload(hash: string): HashPayload | null {
       siteTitle: data.siteTitle as string | undefined,
       homeSlug: data.homeSlug as string | undefined,
       apiBaseUrl: data.apiBaseUrl as string | undefined,
+      tenantId: data.tenantId as string | undefined,
+      storeId: data.storeId as string | undefined,
       theme: data.theme as HashPayload['theme'],
       accentColor: data.accentColor as string | undefined,
       useDemoData: data.useDemoData as boolean | undefined,

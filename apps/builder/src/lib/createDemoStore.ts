@@ -164,6 +164,7 @@ export function createDemoStore(options: { useDemoData?: boolean } = {}): StoreD
     siteTitle: 'Berg Store',
     homeSlug: 'home',
     apiBaseUrl: undefined,
+    storeId: undefined,
     theme: 'dark',
     accentColor: '#3b82f6',
     useDemoData,
