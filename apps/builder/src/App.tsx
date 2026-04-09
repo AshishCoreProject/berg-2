@@ -248,7 +248,7 @@ export default function App() {
 
   const setUseDemoData = useCallback(
     (useDemoData: boolean) => {
-      persistStore((prev) => ({ ...prev, useDemoData: useDemoData || undefined }));
+      persistStore((prev) => ({ ...prev, useDemoData }));
     },
     [persistStore]
   );
@@ -1071,7 +1071,7 @@ export default function App() {
       storeId: store.storeId,
       theme: store.theme,
       accentColor: store.accentColor,
-      useDemoData: store.useDemoData,
+      useDemoData: store.useDemoData ?? false,
       headerStyle: store.headerStyle,
       footerStyle: store.footerStyle,
       footerLinks: store.footerLinks,
@@ -1319,6 +1319,8 @@ export default function App() {
                   }
                   apiBaseUrl={store.apiBaseUrl}
                   useDemoData={store.useDemoData ?? false}
+                  tenantId={store.tenantId}
+                  storeId={store.storeId}
                   onRequestContextMenu={openContextMenu}
                 />
               )}

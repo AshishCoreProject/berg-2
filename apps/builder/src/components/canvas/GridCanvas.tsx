@@ -47,6 +47,8 @@ interface GridCanvasProps {
   canvasWidth?: number;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
 }
 
 export function GridCanvas({
@@ -70,6 +72,8 @@ export function GridCanvas({
   canvasWidth = 960,
   apiBaseUrl,
   useDemoData,
+  tenantId,
+  storeId,
 }: GridCanvasProps) {
   const layout = useMemo(() => getLayoutItems(blocks, viewport), [blocks, viewport]);
 
@@ -185,6 +189,8 @@ export function GridCanvas({
               useStorefrontPreview
               apiBaseUrl={apiBaseUrl}
               useDemoData={useDemoData}
+              tenantId={tenantId}
+              storeId={storeId}
               gridColumnSpan={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { w?: number } | undefined)?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12}
               gridColumnStart={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { x?: number } | undefined)?.x != null ? ((((block.attributes?.layoutByViewport as Record<string, unknown>)[viewport] as { x: number }).x) + 1) : ((block.attributes?.gridColumnStart as number) ?? 1)}
               onGridChange={(newSpan, newStart) =>

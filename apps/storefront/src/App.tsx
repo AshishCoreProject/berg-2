@@ -118,7 +118,7 @@ export default function App() {
         storeId: payload.storeId ?? existing.storeId,
         theme: payload.theme ?? existing.theme,
         accentColor: payload.accentColor ?? existing.accentColor,
-        useDemoData: payload.useDemoData ?? existing.useDemoData,
+        useDemoData: typeof payload.useDemoData === 'boolean' ? payload.useDemoData : false,
         headerStyle: payload.headerStyle ?? existing.headerStyle,
         footerStyle: payload.footerStyle ?? existing.footerStyle,
         footerLinks: payload.footerLinks ?? existing.footerLinks,
@@ -344,6 +344,8 @@ export default function App() {
           <ProductListingPage
             apiBaseUrl={store.apiBaseUrl}
             useDemoData={useDemoData}
+            tenantId={store.tenantId}
+            storeId={store.storeId}
             onNavigate={navigate}
           />
           <SiteFooter
@@ -410,6 +412,8 @@ export default function App() {
             handle={productHandle}
             apiBaseUrl={store.apiBaseUrl}
             useDemoData={useDemoData}
+            tenantId={store.tenantId}
+            storeId={store.storeId}
             onNavigate={navigate}
           />
           <SiteFooter
@@ -444,7 +448,7 @@ export default function App() {
             <a href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>← Go to home</a>
           </main>
         ) : (
-          <PageContent page={currentPage} apiBaseUrl={store.apiBaseUrl} useDemoData={useDemoData} />
+          <PageContent page={currentPage} apiBaseUrl={store.apiBaseUrl} useDemoData={useDemoData} tenantId={store.tenantId} storeId={store.storeId} />
         )}
         <SiteFooter
           siteTitle={siteName}
@@ -460,7 +464,7 @@ export default function App() {
   );
 }
 
-function PageContent({ page, apiBaseUrl, useDemoData }: { page: StoredPage; apiBaseUrl?: string; useDemoData?: boolean }) {
+function PageContent({ page, apiBaseUrl, useDemoData, tenantId, storeId }: { page: StoredPage; apiBaseUrl?: string; useDemoData?: boolean; tenantId?: string; storeId?: string }) {
   const doc = page.document;
   const { meta, blocks } = doc;
   const layoutViewport = useStorefrontViewport();
@@ -523,10 +527,10 @@ function PageContent({ page, apiBaseUrl, useDemoData }: { page: StoredPage; apiB
                 >
                   {fullBleed ? (
                     <div className="storefront-full-bleed-inner">
-                      <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
+                      <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
                     </div>
                   ) : (
-                    <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
+                    <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
                   )}
                 </div>
               );

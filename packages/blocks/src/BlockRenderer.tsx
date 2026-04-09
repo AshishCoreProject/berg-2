@@ -10,6 +10,8 @@ interface Props {
   block: Block;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
   /**
    * Which `layoutByViewport` bucket to use for grid-derived sizing (e.g. core/box min-height).
    * Storefront passes `useStorefrontViewport()`; builder omits (defaults to desktop).
@@ -48,6 +50,8 @@ function FormBlock({
   fields,
   apiBaseUrl,
   useDemoData,
+  tenantId,
+  storeId,
   layoutViewport,
 }: {
   title: string;
@@ -56,6 +60,8 @@ function FormBlock({
   fields: Block[];
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
   layoutViewport?: StorefrontViewport;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -73,7 +79,7 @@ function FormBlock({
       {title && <h3 className="block-form-title">{title}</h3>}
       <form ref={formRef} className="block-form-inner" onSubmit={(e) => e.preventDefault()}>
         {fields.map((f) => (
-          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
+          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
         ))}
         <div className="block-form-actions">
           <button type="submit" className="button-link form-submit-btn">
@@ -98,7 +104,7 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
   return s;
 }
 
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, layoutViewport = 'desktop' }: Props) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, renderChildren, layoutViewport = 'desktop' }: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
   const textAlign = (attrs.textAlign as string | undefined) ?? 'left';
@@ -264,7 +270,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
             >
               {block.innerBlocks.map((col) => (
                 <div key={col.id} className="column">
-                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} layoutViewport={layoutViewport} />
+                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
                 </div>
               ))}
             </div>
@@ -482,6 +488,8 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
           limit={(attrs.limit as number) ?? 12}
           collectionId={(attrs.collectionId as string) || undefined}
           useDemoData={useDemoData}
+          tenantId={tenantId}
+          storeId={storeId}
           titleFontFamily={(attrs.fontFamily as string) || undefined}
           titleTextColor={(attrs.textColor as string) || undefined}
           titleFontSize={(attrs.fontSize as string) || (attrs.titleFontSize as string) || undefined}
@@ -566,6 +574,8 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
             fields={block.innerBlocks}
             apiBaseUrl={apiBaseUrl}
             useDemoData={useDemoData}
+            tenantId={tenantId}
+            storeId={storeId}
             layoutViewport={layoutViewport}
           />
         );
@@ -734,7 +744,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
                 overflow: 'visible',
               }}
             >
-              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={renderChildren} layoutViewport={layoutViewport} />
+              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={renderChildren} layoutViewport={layoutViewport} />
             </div>
           );
         })}

@@ -219,7 +219,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockDefinition> = {
       title: 'Products',
       limit: 12,
       collectionId: '',
-      apiEndpoint: '/products',
+      apiEndpoint: '/v1/products',
       fontFamily: '',
       textColor: '',
       titleFontSize: '',

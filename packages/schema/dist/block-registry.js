@@ -207,7 +207,7 @@ export const BLOCK_REGISTRY = {
             title: 'Products',
             limit: 12,
             collectionId: '',
-            apiEndpoint: '/products',
+            apiEndpoint: '/v1/products',
             fontFamily: '',
             textColor: '',
             titleFontSize: '',

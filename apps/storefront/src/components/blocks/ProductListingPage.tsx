@@ -1,28 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
-import { DEMO_PRODUCTS } from "@berg/blocks";
+import { DEMO_PRODUCTS, listProducts, type ProductApiPagination, type NormalizedProduct } from "@berg/blocks";
 
 const PAGE_SIZE = 10;
 
 interface ProductListingPageProps {
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
   onNavigate: (path: string) => void;
 }
 
 export function ProductListingPage({
   apiBaseUrl,
   useDemoData,
+  tenantId,
+  storeId,
   onNavigate,
 }: ProductListingPageProps) {
   const [page, setPage] = useState(1);
+  const [liveProducts, setLiveProducts] = useState<NormalizedProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [livePagination, setLivePagination] = useState<ProductApiPagination | null>(null);
 
-  const total = DEMO_PRODUCTS.length;
+  const total = useDemoData ? DEMO_PRODUCTS.length : (livePagination?.total ?? liveProducts.length);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const pageProducts = useMemo(() => {
+    if (!useDemoData) return liveProducts;
     const start = (page - 1) * PAGE_SIZE;
     return DEMO_PRODUCTS.slice(start, start + PAGE_SIZE);
-  }, [page]);
+  }, [page, useDemoData, liveProducts]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -31,6 +40,35 @@ export function ProductListingPage({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
+
+  useEffect(() => {
+    if (useDemoData) return;
+    if (!apiBaseUrl?.trim()) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    listProducts({
+      apiBaseUrl,
+      endpoint: "/v1/products",
+      page,
+      limit: PAGE_SIZE,
+      tenantId,
+      storeId,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        setLiveProducts(result.data);
+        setLivePagination(result.pagination);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Failed to load products");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [apiBaseUrl, page, storeId, tenantId, useDemoData]);
 
   useEffect(() => {
     document.title = "All products";
@@ -43,7 +81,7 @@ export function ProductListingPage({
     desc.setAttribute("content", "Browse all products in the store.");
   }, []);
 
-  if (!useDemoData) {
+  if (!useDemoData && !apiBaseUrl?.trim()) {
     return (
       <main
         className="storefront collection-detail product-listing"
@@ -67,6 +105,47 @@ export function ProductListingPage({
             {!apiBaseUrl?.trim()
               ? "API base URL not configured. Set it in Builder → Website → API Base URL, or enable demo data to preview the catalog."
               : "Live catalog will load from your store API when this connection is ready."}
+          </p>
+        </article>
+      </main>
+    );
+  }
+
+  if (!useDemoData && loading) {
+    return (
+      <main className="storefront collection-detail product-listing" role="main">
+        <article className="collection-detail-article">
+          <header className="storefront-header">
+            <h1>All products</h1>
+          </header>
+          <p className="product-grid-loading">Loading products...</p>
+        </article>
+      </main>
+    );
+  }
+
+  if (!useDemoData && error) {
+    return (
+      <main className="storefront collection-detail product-listing" role="main">
+        <article className="collection-detail-article">
+          <header className="storefront-header">
+            <h1>All products</h1>
+          </header>
+          <p className="product-grid-error">{error}</p>
+        </article>
+      </main>
+    );
+  }
+
+  if (!useDemoData && !loading && !error && pageProducts.length === 0) {
+    return (
+      <main className="storefront collection-detail product-listing" role="main">
+        <article className="collection-detail-article">
+          <header className="storefront-header">
+            <h1>All products</h1>
+          </header>
+          <p className="product-grid-error">
+            No products found for this tenant/store. Verify Tenant ID, Store ID, and API data.
           </p>
         </article>
       </main>
@@ -108,13 +187,13 @@ export function ProductListingPage({
                   <p className="product-description">{product.description}</p>
                 )}
                 <div className="product-price">${product.price.toFixed(2)}</div>
-                {product.handle && (
+                {(useDemoData ? product.handle : product.id) && (
                   <a
-                    href={`/products/${product.handle}`}
+                    href={`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}`}
                     className="product-link"
                     onClick={(e) => {
                       e.preventDefault();
-                      onNavigate(`/products/${product.handle}`);
+                      onNavigate(`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}`);
                     }}
                   >
                     View Product

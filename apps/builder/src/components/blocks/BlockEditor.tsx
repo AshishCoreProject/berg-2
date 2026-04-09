@@ -51,6 +51,8 @@ interface Props {
   isLayerChild?: boolean;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
 }
 
 export function BlockEditor({
@@ -84,6 +86,8 @@ export function BlockEditor({
   isLayerChild = false,
   apiBaseUrl,
   useDemoData,
+  tenantId,
+  storeId,
   onRequestContextMenu,
 }: Props) {
   const [isHover, setIsHover] = useState(false);
@@ -757,12 +761,14 @@ export function BlockEditor({
             block={block}
             apiBaseUrl={apiBaseUrl}
             useDemoData={useDemoData ?? true}
+            tenantId={tenantId}
+            storeId={storeId}
           />
         );
       }
 
       case 'core/custom':
-        return <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />;
+        return <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />;
 
       case 'core/form': {
         if (isInnerBlocksBlock(block) && block.innerBlocks) {
@@ -784,7 +790,7 @@ export function BlockEditor({
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectNestedBlock?.(f.id); } }}
                   >
-                    <BlockRenderer block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />
+                    <BlockRenderer block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />
                   </div>
                 ))}
                 <div className="block-form-drop-hint">Drop fields from Form section</div>
@@ -1045,7 +1051,7 @@ export function BlockEditor({
       );
       return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
     }
-    const content = <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} renderChildren={false} />;
+    const content = <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />;
     return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
   };
 
@@ -1324,6 +1330,8 @@ export function BlockEditor({
                       isLayerChild
                       apiBaseUrl={apiBaseUrl}
                       useDemoData={useDemoData}
+                      tenantId={tenantId}
+                      storeId={storeId}
                       onInsertChild={onInsertChild}
                     />
                   </div>

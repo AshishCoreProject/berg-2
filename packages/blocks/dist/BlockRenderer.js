@@ -24,7 +24,7 @@ function normalizeSpacingValue(v) {
     return trimmed;
 }
 /** Form container: renders fields + submit button, runs submitScript on mount */
-function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, layoutViewport, }) {
+function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, tenantId, storeId, layoutViewport, }) {
     const formRef = useRef(null);
     useEffect(() => {
         if (!formRef.current || !submitScript.trim())
@@ -37,7 +37,7 @@ function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, 
             /* ignore parse/runtime errors in user script */
         }
     }, [submitScript]);
-    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
+    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, layoutViewport: layoutViewport }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
 }
 function buildSpacingStyle(attrs) {
     const s = {};
@@ -52,7 +52,7 @@ function buildSpacingStyle(attrs) {
     }
     return s;
 }
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, layoutViewport = 'desktop' }) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, renderChildren, layoutViewport = 'desktop' }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
     const textAlign = attrs.textAlign ?? 'left';
@@ -182,7 +182,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
                 const gridCols = columnWidths && columnWidths.length === block.innerBlocks.length
                     ? columnWidths.map((p) => `${p}fr`).join(' ')
                     : `repeat(${columns}, 1fr)`;
-                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }) }, col.id))) }) }));
+                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, layoutViewport: layoutViewport }) }, col.id))) }) }));
             }
             break;
         }
@@ -350,7 +350,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
             break;
         }
         case 'store/product-grid': {
-            content = (_jsx(ProductGrid, { apiBaseUrl: apiBaseUrl, apiEndpoint: attrs.apiEndpoint ?? '/products', title: attrs.title ?? 'Products', limit: attrs.limit ?? 12, collectionId: attrs.collectionId || undefined, useDemoData: useDemoData, titleFontFamily: attrs.fontFamily || undefined, titleTextColor: attrs.textColor || undefined, titleFontSize: attrs.fontSize || attrs.titleFontSize || undefined, titleFontWeight: attrs.fontWeight || attrs.titleFontWeight || undefined, titleFontStyle: attrs.fontStyle || attrs.titleFontStyle || undefined, buttonBackgroundColor: attrs.buttonBackgroundColor || undefined, buttonColor: attrs.buttonColor || undefined, buttonFontFamily: attrs.buttonFontFamily || undefined, buttonFontSize: attrs.buttonFontSize || undefined, buttonFontWeight: attrs.buttonFontWeight || undefined, buttonFontStyle: attrs.buttonFontStyle || undefined, buttonBorderRadius: attrs.buttonBorderRadius || undefined, buttonPadding: attrs.buttonPadding || undefined }));
+            content = (_jsx(ProductGrid, { apiBaseUrl: apiBaseUrl, apiEndpoint: attrs.apiEndpoint ?? '/products', title: attrs.title ?? 'Products', limit: attrs.limit ?? 12, collectionId: attrs.collectionId || undefined, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, titleFontFamily: attrs.fontFamily || undefined, titleTextColor: attrs.textColor || undefined, titleFontSize: attrs.fontSize || attrs.titleFontSize || undefined, titleFontWeight: attrs.fontWeight || attrs.titleFontWeight || undefined, titleFontStyle: attrs.fontStyle || attrs.titleFontStyle || undefined, buttonBackgroundColor: attrs.buttonBackgroundColor || undefined, buttonColor: attrs.buttonColor || undefined, buttonFontFamily: attrs.buttonFontFamily || undefined, buttonFontSize: attrs.buttonFontSize || undefined, buttonFontWeight: attrs.buttonFontWeight || undefined, buttonFontStyle: attrs.buttonFontStyle || undefined, buttonBorderRadius: attrs.buttonBorderRadius || undefined, buttonPadding: attrs.buttonPadding || undefined }));
             break;
         }
         case 'store/collection-list': {
@@ -384,7 +384,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
                 const title = attrs.title ?? 'Contact us';
                 const submitText = attrs.submitButtonText ?? 'Submit';
                 const submitScript = attrs.submitScript ?? '';
-                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, layoutViewport: layoutViewport }));
+                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, layoutViewport: layoutViewport }));
             }
             else {
                 content = (_jsx("section", { className: "block block-form block-form-empty", children: _jsx("p", { className: "block-form-empty-hint", children: "Add form fields by dragging them from the Form section." }) }));
@@ -484,6 +484,6 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, renderChildren, 
                             width: `${wPct}%`,
                             height: `${hPct}%`,
                             overflow: 'visible',
-                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, renderChildren: renderChildren, layoutViewport: layoutViewport }) }, child.id));
+                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, renderChildren: renderChildren, layoutViewport: layoutViewport }) }, child.id));
                 }) })] }));
 }

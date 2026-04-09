@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@storefront-ui-plugin/cart-checkout-plugin';
-import { getDemoProductByHandle } from '@berg/blocks';
+import { getDemoProductByHandle, getProductById } from '@berg/blocks';
 
 interface ProductDetailPageProps {
   handle: string;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
   onNavigate: (path: string) => void;
 }
 
@@ -27,7 +29,7 @@ function normalizeImages(p: LoadedProduct): string[] {
   return [];
 }
 
-export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, onNavigate }: ProductDetailPageProps) {
+export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, tenantId, storeId, onNavigate }: ProductDetailPageProps) {
   const { addItem } = useCart();
   const [addedFeedback, setAddedFeedback] = useState(false);
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,30 +63,19 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, onNavigate 
       setLoading(false);
       return;
     }
-    const url = `${apiBaseUrl.replace(/\/$/, '')}/products/${encodeURIComponent(handle)}`;
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error('Product not found');
-        return res.json();
-      })
-      .then((data) => {
-        const rawImages = data.images;
-        const images = Array.isArray(rawImages) && rawImages.length
-          ? rawImages.filter((u: unknown) => typeof u === 'string')
-          : undefined;
-        setProduct({
-          id: data.id,
-          title: data.title,
-          description: data.description,
-          price: data.price ?? 0,
-          image: data.image,
-          images,
-          handle: data.handle ?? data.id,
-        });
+    getProductById({
+      apiBaseUrl,
+      productId: handle,
+      endpointPrefix: '/v1/products',
+      tenantId,
+      storeId,
+    })
+      .then((loaded) => {
+        setProduct(loaded);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false));
-  }, [handle, apiBaseUrl, useDemoData]);
+  }, [handle, apiBaseUrl, useDemoData, tenantId, storeId]);
 
   if (loading) {
     return (
