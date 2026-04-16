@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type { AuthFormDefaults } from '@berg/core';
 import type { Block, BlockType } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
 import { BlockRenderer } from '@berg/blocks';
@@ -53,6 +54,8 @@ interface Props {
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
 }
 
 export function BlockEditor({
@@ -88,11 +91,19 @@ export function BlockEditor({
   useDemoData,
   tenantId,
   storeId,
+  authApiBaseUrl,
+  authFormDefaults,
   onRequestContextMenu,
 }: Props) {
   const [isHover, setIsHover] = useState(false);
 
   const attrs = block.attributes ?? {};
+  const previewAuthProps = {
+    authApiBaseUrl,
+    authFormDefaults,
+    onNavigate: () => {},
+    isBuilderPreview: true as const,
+  };
   const set = (key: string, value: unknown) => onUpdate({ [key]: value });
   const isRichTextEmpty = useCallback((html: string): boolean => {
     if (!html) return true;
@@ -763,12 +774,23 @@ export function BlockEditor({
             useDemoData={useDemoData ?? true}
             tenantId={tenantId}
             storeId={storeId}
+            {...previewAuthProps}
           />
         );
       }
 
       case 'core/custom':
-        return <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />;
+        return (
+          <BlockRenderer
+            block={block}
+            apiBaseUrl={apiBaseUrl}
+            useDemoData={useDemoData}
+            tenantId={tenantId}
+            storeId={storeId}
+            renderChildren={false}
+            {...previewAuthProps}
+          />
+        );
 
       case 'core/form': {
         if (isInnerBlocksBlock(block) && block.innerBlocks) {
@@ -790,7 +812,15 @@ export function BlockEditor({
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectNestedBlock?.(f.id); } }}
                   >
-                    <BlockRenderer block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />
+                    <BlockRenderer
+                      block={f}
+                      apiBaseUrl={apiBaseUrl}
+                      useDemoData={useDemoData}
+                      tenantId={tenantId}
+                      storeId={storeId}
+                      renderChildren={false}
+                      {...previewAuthProps}
+                    />
                   </div>
                 ))}
                 <div className="block-form-drop-hint">Drop fields from Form section</div>
@@ -1051,7 +1081,17 @@ export function BlockEditor({
       );
       return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
     }
-    const content = <BlockRenderer block={block} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={false} />;
+    const content = (
+      <BlockRenderer
+        block={block}
+        apiBaseUrl={apiBaseUrl}
+        useDemoData={useDemoData}
+        tenantId={tenantId}
+        storeId={storeId}
+        renderChildren={false}
+        {...previewAuthProps}
+      />
+    );
     return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
   };
 
@@ -1332,6 +1372,8 @@ export function BlockEditor({
                       useDemoData={useDemoData}
                       tenantId={tenantId}
                       storeId={storeId}
+                      authApiBaseUrl={authApiBaseUrl}
+                      authFormDefaults={authFormDefaults}
                       onInsertChild={onInsertChild}
                     />
                   </div>

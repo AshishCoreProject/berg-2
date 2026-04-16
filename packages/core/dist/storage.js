@@ -17,6 +17,11 @@ function isFooterLinksConfig(v) {
     const o = v;
     return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
 }
+function isAuthFormDefaults(v) {
+    if (typeof v !== 'object' || v === null)
+        return false;
+    return true;
+}
 function parseStore(raw) {
     const data = JSON.parse(raw);
     const pages = Array.isArray(data) ? data : data.pages ?? [];
@@ -36,6 +41,8 @@ function parseStore(raw) {
         buttonStyle: store.buttonStyle,
         footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
         hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
+        authApiBaseUrl: typeof store.authApiBaseUrl === 'string' ? store.authApiBaseUrl : undefined,
+        authFormDefaults: isAuthFormDefaults(store.authFormDefaults) ? store.authFormDefaults : undefined,
     };
 }
 /** Sync load – for backward compatibility. Uses localStorage directly. */

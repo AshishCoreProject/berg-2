@@ -37,7 +37,7 @@ export function compactLayoutVertical(
 export function getDefaultHeightForType(blockType: string): number {
   if (blockType === 'core/hero') return 14;
   if (blockType === 'store/product-grid' || blockType === 'store/collection-list') return 16;
-  if (blockType === 'store/testimonials' || blockType === 'store/newsletter') return 10;
+  if (blockType === 'store/testimonials' || blockType === 'store/newsletter' || blockType === 'store/customer-auth') return 10;
   if (blockType === 'store/trust-badges') return 4;
   if (blockType === 'store/promo-banner') return 2;
   if (blockType === 'core/custom') return 13;

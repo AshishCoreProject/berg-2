@@ -3,7 +3,7 @@
  * Swap implementation for API/IndexedDB in enterprise deployments.
  */
 
-import type { StoreData, StorageAdapter } from './types.js';
+import type { AuthFormDefaults, StoreData, StorageAdapter } from './types.js';
 import type { FooterLinksConfig, StoredPage } from '@berg/schema';
 import { logger } from './logger.js';
 
@@ -25,6 +25,11 @@ function isFooterLinksConfig(v: unknown): v is FooterLinksConfig {
   return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
 }
 
+function isAuthFormDefaults(v: unknown): v is AuthFormDefaults {
+  if (typeof v !== 'object' || v === null) return false;
+  return true;
+}
+
 function parseStore(raw: string): StoreData {
   const data = JSON.parse(raw) as StoreData | { pages?: unknown[] };
   const pages = Array.isArray(data) ? data : (data as StoreData).pages ?? [];
@@ -44,6 +49,8 @@ function parseStore(raw: string): StoreData {
     buttonStyle: store.buttonStyle,
     footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
     hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
+    authApiBaseUrl: typeof store.authApiBaseUrl === 'string' ? store.authApiBaseUrl : undefined,
+    authFormDefaults: isAuthFormDefaults(store.authFormDefaults) ? store.authFormDefaults : undefined,
   };
 }
 

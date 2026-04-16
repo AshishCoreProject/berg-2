@@ -11,8 +11,18 @@ import {
   type BlockType,
   type StoredPage,
 } from '@berg/schema';
-import { encodeHashPayload } from '@berg/core';
-import { loadStore, saveStore, type StoreData, createDemoStore as buildDemoStore, getDefaultHeightForType, getLayoutItems, compactLayoutVertical } from '@/lib';
+import { encodeHashPayload, type AuthFormDefaults } from '@berg/core';
+import {
+  loadStore,
+  saveStore,
+  type StoreData,
+  createDemoStore as buildDemoStore,
+  getDefaultHeightForType,
+  getLayoutItems,
+  compactLayoutVertical,
+  ensureAuthPages,
+  isFixedAuthSlug,
+} from '@/lib';
 import { BlockInserter, BlockToolbarSidebar, BLOCK_DRAG_TYPE } from '@/components/blocks';
 import { GridCanvas, ViewportSwitcher, VIEWPORT_WIDTHS, type Viewport } from '@/components/canvas';
 import { PageMetaEditor, PageList, AddPageModal } from '@/features/pages';
@@ -144,6 +154,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    persistStoreWithoutHistory((prev) => ensureAuthPages(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const currentPage = useMemo(
     () => pages.find((p) => p.id === currentPageId) ?? null,
     [pages, currentPageId]
@@ -228,6 +243,23 @@ export default function App() {
   const setStoreId = useCallback(
     (storeId: string) => {
       persistStore((prev) => ({ ...prev, storeId: storeId.trim() || undefined }));
+    },
+    [persistStore]
+  );
+
+  const setAuthApiBaseUrl = useCallback(
+    (authApiBaseUrl: string) => {
+      persistStore((prev) => ({ ...prev, authApiBaseUrl: authApiBaseUrl.trim() || undefined }));
+    },
+    [persistStore]
+  );
+
+  const patchAuthFormDefaults = useCallback(
+    (patch: Partial<AuthFormDefaults>) => {
+      persistStore((prev) => ({
+        ...prev,
+        authFormDefaults: { ...prev.authFormDefaults, ...patch },
+      }));
     },
     [persistStore]
   );
@@ -395,6 +427,8 @@ export default function App() {
   const updatePageSlug = useCallback(
     (newSlug: string) => {
       if (!currentPageId) return;
+      const cur = pages.find((p) => p.id === currentPageId);
+      if (cur && isFixedAuthSlug(cur.slug)) return;
       persistPages(
         pages.map((p) => (p.id === currentPageId ? { ...p, slug: newSlug } : p))
       );
@@ -471,6 +505,7 @@ export default function App() {
   const deletePage = useCallback(
     (id: string) => {
       const deleted = pages.find((p) => p.id === id);
+      if (deleted && isFixedAuthSlug(deleted.slug)) return;
       const next = pages.filter((p) => p.id !== id);
       persistStore((prev) => {
         const nextStore = { ...prev, pages: next };
@@ -1077,6 +1112,8 @@ export default function App() {
       footerLinks: store.footerLinks,
       buttonStyle: store.buttonStyle,
       hiddenFromHeader: store.hiddenFromHeader,
+      authApiBaseUrl: store.authApiBaseUrl,
+      authFormDefaults: store.authFormDefaults,
       openSlug: currentPage?.slug,
     };
     const hash = encodeHashPayload(payload);
@@ -1097,6 +1134,8 @@ export default function App() {
     store.footerLinks,
     store.buttonStyle,
     store.hiddenFromHeader,
+    store.authApiBaseUrl,
+    store.authFormDefaults,
     currentPage?.slug,
   ]);
 
@@ -1176,6 +1215,8 @@ export default function App() {
                 apiBaseUrl={store.apiBaseUrl ?? ''}
                 tenantId={store.tenantId ?? ''}
                 storeId={store.storeId ?? ''}
+                authApiBaseUrl={store.authApiBaseUrl ?? ''}
+                authFormDefaults={store.authFormDefaults ?? {}}
                 theme={store.theme ?? 'dark'}
                 accentColor={store.accentColor ?? '#3b82f6'}
                 useDemoData={store.useDemoData ?? false}
@@ -1184,6 +1225,8 @@ export default function App() {
                 onApiBaseUrlChange={setApiBaseUrl}
                 onTenantIdChange={setTenantId}
                 onStoreIdChange={setStoreId}
+                onAuthApiBaseUrlChange={setAuthApiBaseUrl}
+                onAuthFormDefaultsPatch={patchAuthFormDefaults}
                 onThemeChange={setTheme}
                 onAccentColorChange={setAccentColor}
                 onUseDemoDataChange={setUseDemoData}
@@ -1204,11 +1247,13 @@ export default function App() {
                     onDelete={deletePage}
                     onSetHome={setHomeSlug}
                     onToggleShowInHeader={setHiddenFromHeader}
+                    canDeletePage={(p) => !isFixedAuthSlug(p.slug)}
                   />
                   <PageMetaEditor
                     meta={doc.meta}
                     slug={currentPage.slug}
                     published={currentPage.published !== false}
+                    slugReadOnly={isFixedAuthSlug(currentPage.slug)}
                     otherSlugs={new Set(pages.filter((p) => p.id !== currentPageId).map((p) => p.slug))}
                     onChange={updateMeta}
                     onSlugChange={updatePageSlug}
@@ -1321,6 +1366,8 @@ export default function App() {
                   useDemoData={store.useDemoData ?? false}
                   tenantId={store.tenantId}
                   storeId={store.storeId}
+                  authApiBaseUrl={store.authApiBaseUrl}
+                  authFormDefaults={store.authFormDefaults}
                   onRequestContextMenu={openContextMenu}
                 />
               )}

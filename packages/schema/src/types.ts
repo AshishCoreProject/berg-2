@@ -29,7 +29,8 @@ export type BlockType =
   | 'store/newsletter'
   | 'store/promo-banner'
   | 'store/testimonials'
-  | 'store/trust-badges';
+  | 'store/trust-badges'
+  | 'store/customer-auth';
 
 /** Base block: every block has id, type, and optional attributes. */
 export interface BaseBlock {

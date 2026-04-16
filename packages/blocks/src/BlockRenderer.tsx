@@ -1,9 +1,11 @@
 import { useRef, useEffect } from 'react';
 import type { Block } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
+import type { AuthFormDefaults } from '@berg/core';
 import { sanitizeHtml, isHtml, sanitizeCustomHtml } from './sanitizeHtml';
 import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
+import { CustomerAuthBlock } from './CustomerAuthBlock';
 import { resolveGridLayout, type StorefrontViewport } from './blockLayout';
 
 interface Props {
@@ -12,6 +14,10 @@ interface Props {
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
+  onNavigate?: (path: string) => void;
+  isBuilderPreview?: boolean;
   /**
    * Which `layoutByViewport` bucket to use for grid-derived sizing (e.g. core/box min-height).
    * Storefront passes `useStorefrontViewport()`; builder omits (defaults to desktop).
@@ -52,6 +58,10 @@ function FormBlock({
   useDemoData,
   tenantId,
   storeId,
+  authApiBaseUrl,
+  authFormDefaults,
+  onNavigate,
+  isBuilderPreview,
   layoutViewport,
 }: {
   title: string;
@@ -62,6 +72,10 @@ function FormBlock({
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
+  onNavigate?: (path: string) => void;
+  isBuilderPreview?: boolean;
   layoutViewport?: StorefrontViewport;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -79,7 +93,19 @@ function FormBlock({
       {title && <h3 className="block-form-title">{title}</h3>}
       <form ref={formRef} className="block-form-inner" onSubmit={(e) => e.preventDefault()}>
         {fields.map((f) => (
-          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
+          <BlockRenderer
+            key={f.id}
+            block={f}
+            apiBaseUrl={apiBaseUrl}
+            useDemoData={useDemoData}
+            tenantId={tenantId}
+            storeId={storeId}
+            authApiBaseUrl={authApiBaseUrl}
+            authFormDefaults={authFormDefaults}
+            onNavigate={onNavigate}
+            isBuilderPreview={isBuilderPreview}
+            layoutViewport={layoutViewport}
+          />
         ))}
         <div className="block-form-actions">
           <button type="submit" className="button-link form-submit-btn">
@@ -104,7 +130,19 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
   return s;
 }
 
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, renderChildren, layoutViewport = 'desktop' }: Props) {
+export function BlockRenderer({
+  block,
+  apiBaseUrl,
+  useDemoData,
+  tenantId,
+  storeId,
+  authApiBaseUrl,
+  authFormDefaults,
+  onNavigate,
+  isBuilderPreview,
+  renderChildren,
+  layoutViewport = 'desktop',
+}: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
   const textAlign = (attrs.textAlign as string | undefined) ?? 'left';
@@ -270,7 +308,18 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
             >
               {block.innerBlocks.map((col) => (
                 <div key={col.id} className="column">
-                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} layoutViewport={layoutViewport} />
+                  <BlockRenderer
+                    block={col}
+                    apiBaseUrl={apiBaseUrl}
+                    useDemoData={useDemoData}
+                    tenantId={tenantId}
+                    storeId={storeId}
+                    authApiBaseUrl={authApiBaseUrl}
+                    authFormDefaults={authFormDefaults}
+                    onNavigate={onNavigate}
+                    isBuilderPreview={isBuilderPreview}
+                    layoutViewport={layoutViewport}
+                  />
                 </div>
               ))}
             </div>
@@ -576,6 +625,10 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
             useDemoData={useDemoData}
             tenantId={tenantId}
             storeId={storeId}
+            authApiBaseUrl={authApiBaseUrl}
+            authFormDefaults={authFormDefaults}
+            onNavigate={onNavigate}
+            isBuilderPreview={isBuilderPreview}
             layoutViewport={layoutViewport}
           />
         );
@@ -711,6 +764,20 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
       break;
     }
 
+    case 'store/customer-auth': {
+      content = (
+        <CustomerAuthBlock
+          attrs={attrs}
+          authApiBaseUrl={authApiBaseUrl}
+          authFormDefaults={authFormDefaults}
+          storeId={storeId}
+          onNavigate={onNavigate}
+          isBuilderPreview={isBuilderPreview}
+        />
+      );
+      break;
+    }
+
     default:
       break;
   }
@@ -744,7 +811,19 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
                 overflow: 'visible',
               }}
             >
-              <BlockRenderer block={child} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} tenantId={tenantId} storeId={storeId} renderChildren={renderChildren} layoutViewport={layoutViewport} />
+              <BlockRenderer
+                block={child}
+                apiBaseUrl={apiBaseUrl}
+                useDemoData={useDemoData}
+                tenantId={tenantId}
+                storeId={storeId}
+                authApiBaseUrl={authApiBaseUrl}
+                authFormDefaults={authFormDefaults}
+                onNavigate={onNavigate}
+                isBuilderPreview={isBuilderPreview}
+                renderChildren={renderChildren}
+                layoutViewport={layoutViewport}
+              />
             </div>
           );
         })}

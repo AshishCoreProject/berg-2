@@ -1260,7 +1260,9 @@
   cursor: pointer;
   background: var(--surface);
   scroll-snap-align: start;
-  transition: border-color 0.15s, filter 0.15s;
+  transition:
+    border-color 0.15s,
+    filter 0.15s;
 }
 
 .product-detail-gallery-thumb:hover {
@@ -1635,8 +1637,17 @@
   color: var(--danger, #ef4444);
 }
 
-/* Header cart (storefront – matches @berg/layout layout.css) */
-.site-header-cart-btn {
+/* Header right slot (account + cart) */
+.site-header-right-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+/* Header cart + account (storefront – matches @berg/layout layout.css) */
+.site-header-cart-btn,
+.site-header-account-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1654,13 +1665,235 @@
     color 0.15s;
 }
 
-.site-header-cart-btn:hover {
+.site-header-cart-btn:hover,
+.site-header-account-btn:hover {
   /* background: var(--accent-muted); */
 }
 
-.site-header-cart-svg {
+.site-header-cart-svg,
+.site-header-account-svg {
   display: block;
   flex-shrink: 0;
+}
+
+.site-header-account-img {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Customer auth block (login/register) */
+.block-customer-auth {
+  width: 100%;
+}
+
+.customer-auth-shell {
+  width: 100%;
+  min-height: 100%;
+  padding: 1.25rem 0.85rem;
+}
+
+.customer-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 440px;
+  padding: 1.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+}
+
+.customer-auth-preview-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.customer-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.customer-auth-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.customer-auth-input {
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9375rem;
+  text-align: start;
+}
+
+.customer-auth-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--danger, #ef4444);
+}
+
+.customer-auth-submit {
+  min-height: 44px;
+  margin-top: 0.35rem;
+  box-sizing: border-box;
+  border: 0;
+  transition: filter 120ms ease;
+}
+
+.customer-auth-submit:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.customer-auth-alternate {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.customer-auth-alternate-link {
+  color: var(--accent);
+}
+
+/* Header account popover */
+.account-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.account-popover {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: min(92vw, 340px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in oklab, var(--border-subtle) 88%, white 12%);
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--surface) 94%, white 6%);
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.26),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.account-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.account-popover-avatar {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: color-mix(in oklab, var(--text) 85%, white 15%);
+  background: linear-gradient(145deg, #dbe4ff 0%, #c7d2fe 55%, #e0e7ff 100%);
+  border: 1px solid color-mix(in oklab, #c7d2fe 82%, white 18%);
+}
+
+.account-popover-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.account-popover-title {
+  margin: 0;
+  font-size: 1.07rem;
+  font-weight: 750;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.account-popover-username {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-popover-customer-id {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--muted) 82%, white 18%);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-popover-divider {
+  height: 1px;
+  width: 100%;
+  background: color-mix(in oklab, var(--border-subtle) 92%, white 8%);
+}
+
+.account-popover-logout {
+  min-height: 44px;
+  margin-top: 0.1rem;
+  border-radius: 11px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in oklab, var(--surface) 84%, black 6%);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.account-popover-logout:hover:not(:disabled),
+.account-popover-logout:focus-visible {
+  background: color-mix(in oklab, var(--surface) 70%, #f43f5e 8%);
+  border-color: color-mix(in oklab, var(--border-subtle) 80%, #f43f5e 20%);
+}
+
+.account-popover-logout:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 70%, white 30%);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .customer-auth-shell {
+    padding: 0.85rem 0.5rem;
+  }
+
+  .customer-auth-form {
+    min-height: 400px;
+    padding: 1.25rem;
+    gap: 0.9rem;
+  }
+
+  .account-popover {
+    right: -4px;
+    width: min(92vw, 310px);
+    padding: 0.9rem;
+    border-radius: 16px;
+  }
 }
 
 .storefront-cart-placeholder {

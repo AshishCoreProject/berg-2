@@ -1,4 +1,5 @@
 import type { Block } from '@berg/schema';
+import type { AuthFormDefaults } from '@berg/core';
 import { type StorefrontViewport } from './blockLayout';
 interface Props {
     block: Block;
@@ -6,6 +7,10 @@ interface Props {
     useDemoData?: boolean;
     tenantId?: string;
     storeId?: string;
+    authApiBaseUrl?: string;
+    authFormDefaults?: AuthFormDefaults;
+    onNavigate?: (path: string) => void;
+    isBuilderPreview?: boolean;
     /**
      * Which `layoutByViewport` bucket to use for grid-derived sizing (e.g. core/box min-height).
      * Storefront passes `useStorefrontViewport()`; builder omits (defaults to desktop).
@@ -18,6 +23,6 @@ interface Props {
      */
     renderChildren?: boolean;
 }
-export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, renderChildren, layoutViewport }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
+export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport, }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
 export {};
 //# sourceMappingURL=BlockRenderer.d.ts.map

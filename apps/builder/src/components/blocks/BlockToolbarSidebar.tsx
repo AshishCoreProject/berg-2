@@ -34,11 +34,19 @@ interface Props {
 const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
   'core/paragraph', 'core/heading', 'core/button', 'core/hero',
   'core/list', 'core/quote', 'store/product-grid', 'store/collection-list',
-  'store/promo-banner', 'store/newsletter', 'store/testimonials', 'store/trust-badges',
+  'store/promo-banner', 'store/newsletter', 'store/testimonials', 'store/trust-badges', 'store/customer-auth',
 ];
 const BUTTON_STYLE_BLOCK_TYPES: Block['type'][] = ['core/button', 'core/hero', 'store/product-grid', 'store/collection-list'];
 type TextAlignValue = 'left' | 'center' | 'right';
 type VerticalAlignValue = 'top' | 'center' | 'bottom';
+const AUTH_SUBMIT_GRADIENT_PRESETS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'None (theme default)' },
+  { value: 'ocean', label: 'Ocean blue' },
+  { value: 'sunset', label: 'Sunset orange' },
+  { value: 'violet', label: 'Violet glow' },
+  { value: 'emerald', label: 'Emerald fresh' },
+  { value: 'midnight', label: 'Midnight dark' },
+];
 
 function TextAlignControl({
   value,
@@ -901,6 +909,224 @@ export function BlockToolbarSidebar({
               onChange={(html) => onUpdate({ buttonText: html })}
               placeholder="Subscribe"
               compact
+            />
+          </>
+        )}
+        {block.type === 'store/customer-auth' && (
+          <>
+            <span className="toolbar-group-label">Mode</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.mode as string) === 'register' ? 'register' : 'login'}
+              onChange={(e) => onUpdate({ mode: e.target.value })}
+              aria-label="Auth mode"
+            >
+              <option value="login">Login</option>
+              <option value="register">Register</option>
+            </select>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
+            </div>
+            <span className="toolbar-group-label">Submit button width</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.submitButtonWidth as string) === 'full' ? 'full' : 'auto'}
+              onChange={(e) => onUpdate({ submitButtonWidth: e.target.value })}
+              aria-label="Submit button width"
+            >
+              <option value="auto">Auto</option>
+              <option value="full">Full width</option>
+            </select>
+            <span className="toolbar-group-label">Submit button gradient</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.submitButtonGradient as string) ?? ''}
+              onChange={(e) => onUpdate({ submitButtonGradient: e.target.value })}
+              aria-label="Submit button gradient"
+            >
+              {AUTH_SUBMIT_GRADIENT_PRESETS.map((preset) => (
+                <option key={preset.value || 'none'} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            <span className="toolbar-group-label">Submit button text color</span>
+            <div className="toolbar-color-row">
+              <input
+                type="color"
+                value={(attrs.submitButtonTextColor as string) || '#ffffff'}
+                onChange={(e) => onUpdate({ submitButtonTextColor: e.target.value })}
+                className="toolbar-color-picker"
+                aria-label="Submit button text color"
+              />
+              <input
+                type="text"
+                className="toolbar-input-full toolbar-color-hex"
+                value={(attrs.submitButtonTextColor as string) ?? ''}
+                onChange={(e) => onUpdate({ submitButtonTextColor: e.target.value.trim() || '' })}
+                placeholder="#ffffff"
+                aria-label="Submit button text color hex"
+              />
+            </div>
+            <span className="toolbar-group-label">Form min height (px)</span>
+            <input
+              type="number"
+              min={260}
+              max={1000}
+              step={4}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formMinHeight as string) ?? '440px'), 10) || 440}
+              onChange={(e) => onUpdate({ formMinHeight: `${Math.max(260, Number(e.target.value) || 440)}px` })}
+              aria-label="Form min height"
+            />
+            <span className="toolbar-group-label">Form padding (px)</span>
+            <input
+              type="number"
+              min={10}
+              max={64}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formPadding as string) ?? '28px'), 10) || 28}
+              onChange={(e) => onUpdate({ formPadding: `${Math.max(10, Number(e.target.value) || 28)}px` })}
+              aria-label="Form padding"
+            />
+            <span className="toolbar-group-label">Form vertical gap (px)</span>
+            <input
+              type="number"
+              min={6}
+              max={40}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formGap as string) ?? '16px'), 10) || 16}
+              onChange={(e) => onUpdate({ formGap: `${Math.max(6, Number(e.target.value) || 16)}px` })}
+              aria-label="Form vertical gap"
+            />
+            <span className="toolbar-group-label">Space between fields (px)</span>
+            <input
+              type="number"
+              min={0}
+              max={32}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.fieldGap as string) ?? '10px'), 10) || 10}
+              onChange={(e) => onUpdate({ fieldGap: `${Math.max(0, Number(e.target.value) || 10)}px` })}
+              aria-label="Space between fields"
+            />
+            <span className="toolbar-group-label">Label to input gap (px)</span>
+            <input
+              type="number"
+              min={2}
+              max={24}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.labelInputGap as string) ?? '8px'), 10) || 8}
+              onChange={(e) => onUpdate({ labelInputGap: `${Math.max(2, Number(e.target.value) || 8)}px` })}
+              aria-label="Label to input gap"
+            />
+            <span className="toolbar-group-label">Input min height (px)</span>
+            <input
+              type="number"
+              min={36}
+              max={72}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.inputMinHeight as string) ?? '44px'), 10) || 44}
+              onChange={(e) => onUpdate({ inputMinHeight: `${Math.max(36, Number(e.target.value) || 44)}px` })}
+              aria-label="Input min height"
+            />
+            <span className="toolbar-group-label">Input vertical padding (px)</span>
+            <input
+              type="number"
+              min={6}
+              max={22}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.inputPaddingY as string) ?? '10px'), 10) || 10}
+              onChange={(e) => onUpdate({ inputPaddingY: `${Math.max(6, Number(e.target.value) || 10)}px` })}
+              aria-label="Input vertical padding"
+            />
+            <span className="toolbar-group-label">Email label (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.emailLabel as string) ?? ''}
+              onChange={(e) => onUpdate({ emailLabel: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Email placeholder (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.emailPlaceholder as string) ?? ''}
+              onChange={(e) => onUpdate({ emailPlaceholder: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Password label (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.passwordLabel as string) ?? ''}
+              onChange={(e) => onUpdate({ passwordLabel: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Password placeholder (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.passwordPlaceholder as string) ?? ''}
+              onChange={(e) => onUpdate({ passwordPlaceholder: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Submit button (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.submitText as string) ?? ''}
+              onChange={(e) => onUpdate({ submitText: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Alternate prompt</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternatePrompt as string) ?? ''}
+              onChange={(e) => onUpdate({ alternatePrompt: e.target.value })}
+              placeholder="e.g. Don't have an account?"
+            />
+            <span className="toolbar-group-label">Alternate link text</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternateLinkText as string) ?? ''}
+              onChange={(e) => onUpdate({ alternateLinkText: e.target.value })}
+              placeholder="e.g. Create account"
+            />
+            <span className="toolbar-group-label">Alternate path</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternatePath as string) ?? ''}
+              onChange={(e) => onUpdate({ alternatePath: e.target.value })}
+              placeholder="/register or /login"
+            />
+            <span className="toolbar-group-label">After success redirect</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.successRedirect as string) ?? ''}
+              onChange={(e) => onUpdate({ successRedirect: e.target.value })}
+              placeholder="/ or /login (empty = mode default)"
             />
           </>
         )}

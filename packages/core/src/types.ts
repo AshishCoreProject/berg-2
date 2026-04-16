@@ -5,6 +5,16 @@
 
 import type { FooterLinksConfig, PagesStore } from '@berg/schema';
 
+/** Site-wide defaults for customer auth forms (login/register blocks merge these when attrs are empty). */
+export interface AuthFormDefaults {
+  emailLabel?: string;
+  emailPlaceholder?: string;
+  passwordLabel?: string;
+  passwordPlaceholder?: string;
+  loginSubmitText?: string;
+  registerSubmitText?: string;
+}
+
 /** Style overrides for header, footer, or default buttons */
 export interface StyleOverrides {
   backgroundColor?: string;
@@ -17,6 +27,12 @@ export interface StyleOverrides {
   showCartIcon?: boolean;
   /** Cart icon stroke color (optional; falls back to link color). */
   cartIconColor?: string;
+  /** Header account icon visibility (default true). */
+  showAccountIcon?: boolean;
+  /** Account icon color for default SVG (optional; falls back like cart). */
+  accountIconColor?: string;
+  /** Custom account icon image URL or data URL. */
+  accountIconUrl?: string;
 }
 
 /** Full store data: pages + site settings. Persisted to localStorage or API. */
@@ -41,6 +57,10 @@ export interface StoreData extends PagesStore {
   footerLinks?: FooterLinksConfig;
   /** Page IDs to hide from header/footer navigation */
   hiddenFromHeader?: string[];
+  /** BaaS customer auth API origin (no trailing path). */
+  authApiBaseUrl?: string;
+  /** Default labels/placeholders/submit copy for store/customer-auth blocks. */
+  authFormDefaults?: AuthFormDefaults;
 }
 
 /** Payload passed via URL hash when opening storefront from builder */

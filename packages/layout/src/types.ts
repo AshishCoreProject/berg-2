@@ -45,6 +45,18 @@ export type HeaderFooterStyle = {
    * Cart SVG stroke color. Falls back to linkColor, then color, then theme accent.
    */
   cartIconColor?: string;
+  /**
+   * Show account icon in the header (storefront + builder preview). Defaults to true when undefined.
+   */
+  showAccountIcon?: boolean;
+  /**
+   * Account SVG stroke color when using default icon. Falls back like cartIconColor.
+   */
+  accountIconColor?: string;
+  /**
+   * Optional custom account icon image URL (or data URL from upload).
+   */
+  accountIconUrl?: string;
 };
 
 export type ViewportMode = 'auto' | 'desktop' | 'mobile';

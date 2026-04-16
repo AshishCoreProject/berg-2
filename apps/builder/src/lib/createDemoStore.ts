@@ -7,6 +7,7 @@ import {
   type PageDocument,
 } from "@berg/schema";
 import type { StoreData } from "./storage";
+import { ensureAuthPages } from "./ensureAuthPages";
 import { autoPlace, getDefaultHeightForType } from "./autoPlace";
 
 const SCHEMA_VERSION = 1;
@@ -255,7 +256,7 @@ export function createDemoStore(
     },
   ];
 
-  return {
+  return ensureAuthPages({
     pages,
     siteTitle: "Berg Store",
     homeSlug: "home",
@@ -264,5 +265,5 @@ export function createDemoStore(
     theme: "dark",
     accentColor: "#3b82f6",
     useDemoData,
-  };
+  });
 }

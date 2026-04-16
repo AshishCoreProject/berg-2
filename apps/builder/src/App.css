@@ -2871,7 +2871,7 @@
   position: relative;
   margin-bottom: 0.75rem;
   padding: 0.75rem 0.75rem 0.75rem 0.5rem;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   /* Subtle separation so layout structure is visible */
   border: 1px solid var(--border-subtle);
   background: transparent;
@@ -2885,9 +2885,14 @@
   display: flex;
   align-items: flex-start;
   gap: 0;
+  border-radius: 0;
+  position: relative;
 }
 
 .block-drag-handle-wrap {
+  position: absolute;
+  top: 0;
+  z-index: 100;
   flex-shrink: 0;
   padding: 0.25rem 0.25rem 0.25rem 0;
   margin-right: 0.25rem;
@@ -2925,8 +2930,10 @@
 
 .block-wrap.selected {
   border: 2px solid var(--accent);
+  border-radius: 0;
   box-shadow: 0 0 0 2px var(--accent-muted);
-  z-index: 2;
+  z-index: 200;
+  overflow: hidden;
 }
 
 .block-wrap.is-layer-child.selected {

@@ -6,6 +6,7 @@
 import { useMemo, useCallback } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import type { Block } from '@berg/schema';
+import type { AuthFormDefaults } from '@berg/core';
 import { getLayoutItems, getDefaultHeightForType } from '@/lib/autoPlace';
 import { BlockEditor } from '@/components/blocks';
 import { BLOCK_DRAG_TYPE } from '@/components/blocks';
@@ -49,6 +50,8 @@ interface GridCanvasProps {
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
 }
 
 export function GridCanvas({
@@ -74,6 +77,8 @@ export function GridCanvas({
   useDemoData,
   tenantId,
   storeId,
+  authApiBaseUrl,
+  authFormDefaults,
 }: GridCanvasProps) {
   const layout = useMemo(() => getLayoutItems(blocks, viewport), [blocks, viewport]);
 
@@ -191,6 +196,8 @@ export function GridCanvas({
               useDemoData={useDemoData}
               tenantId={tenantId}
               storeId={storeId}
+              authApiBaseUrl={authApiBaseUrl}
+              authFormDefaults={authFormDefaults}
               gridColumnSpan={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { w?: number } | undefined)?.w ?? (block.attributes?.gridColumnSpan as number) ?? 12}
               gridColumnStart={((block.attributes?.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { x?: number } | undefined)?.x != null ? ((((block.attributes?.layoutByViewport as Record<string, unknown>)[viewport] as { x: number }).x) + 1) : ((block.attributes?.gridColumnStart as number) ?? 1)}
               onGridChange={(newSpan, newStart) =>

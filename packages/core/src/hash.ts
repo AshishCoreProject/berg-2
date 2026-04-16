@@ -44,6 +44,8 @@ export function parseHashPayload(hash: string): HashPayload | null {
       footerLinks: data.footerLinks as HashPayload['footerLinks'],
       buttonStyle: data.buttonStyle as HashPayload['buttonStyle'],
       hiddenFromHeader: Array.isArray(data.hiddenFromHeader) ? data.hiddenFromHeader : undefined,
+      authApiBaseUrl: data.authApiBaseUrl as string | undefined,
+      authFormDefaults: data.authFormDefaults as HashPayload['authFormDefaults'],
     };
   } catch {
     return null;

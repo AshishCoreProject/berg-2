@@ -16,6 +16,9 @@ export interface StyleValues {
   logoHeightPx?: number;
   showCartIcon?: boolean;
   cartIconColor?: string;
+  showAccountIcon?: boolean;
+  accountIconColor?: string;
+  accountIconUrl?: string;
   borderRadius?: string;
   padding?: string;
   boxShadow?: string;
@@ -38,6 +41,10 @@ const FONT_OPTIONS = [
 ];
 
 function isLogoDataUrl(url: string | undefined): boolean {
+  return Boolean(url?.startsWith("data:"));
+}
+
+function isAccountIconDataUrl(url: string | undefined): boolean {
   return Boolean(url?.startsWith("data:"));
 }
 
@@ -391,6 +398,118 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
                 className="style-hex"
               />
             </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Show account icon</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={values.showAccountIcon !== false}
+                onChange={(e) => setBoolean("showAccountIcon", e.target.checked)}
+              />
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                Account link in header (opens /login)
+              </span>
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Account icon color</span>
+            <div className="style-editor-color">
+              <input
+                type="color"
+                value={values.accountIconColor || values.linkColor || "#94a3b8"}
+                onChange={(e) => set("accountIconColor", e.target.value)}
+                title="Account icon color"
+              />
+              <input
+                type="text"
+                value={values.accountIconColor ?? ""}
+                onChange={(e) =>
+                  set("accountIconColor", e.target.value.trim() || undefined)
+                }
+                placeholder={values.linkColor || "uses link color"}
+                className="style-hex"
+              />
+            </div>
+          </label>
+          <label className="style-editor-row">
+            <span>Account icon image</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                fontSize: "0.75rem",
+                color: "var(--muted)",
+              }}
+            >
+              <span>Upload a custom icon (optional)</span>
+            </div>
+            <label className="file-upload">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === "string") {
+                      set("accountIconUrl", reader.result);
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                  e.target.value = "";
+                }}
+              />
+              <span>Upload icon</span>
+            </label>
+          </label>
+          {isAccountIconDataUrl(values.accountIconUrl) && (
+            <div
+              className="style-editor-row"
+              style={{ alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}
+            >
+              <img
+                src={values.accountIconUrl}
+                alt=""
+                style={{
+                  maxHeight: 40,
+                  maxWidth: 40,
+                  width: "auto",
+                  objectFit: "contain",
+                  borderRadius: 4,
+                  border: "1px solid var(--border, #e2e8f0)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => set("accountIconUrl", undefined)}
+                aria-label="Remove uploaded account icon"
+                style={{ padding: "0.35rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          <label className="style-editor-row" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.35rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+              {isAccountIconDataUrl(values.accountIconUrl)
+                ? "Or paste an image URL (replaces upload)"
+                : "Custom icon URL"}
+            </span>
+            <input
+              type="url"
+              value={
+                isAccountIconDataUrl(values.accountIconUrl)
+                  ? ""
+                  : (values.accountIconUrl ?? "")
+              }
+              onChange={(e) =>
+                set("accountIconUrl", e.target.value.trim() || undefined)
+              }
+              placeholder="https://example.com/icon.png"
+            />
           </label>
         </>
       )}

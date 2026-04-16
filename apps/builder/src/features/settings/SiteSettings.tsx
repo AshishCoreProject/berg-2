@@ -1,3 +1,4 @@
+import type { AuthFormDefaults } from '@berg/core';
 import { StyleEditor } from '@/components/controls';
 
 type ButtonStyle = { backgroundColor?: string; color?: string; fontFamily?: string; borderRadius?: string; padding?: string };
@@ -7,8 +8,12 @@ interface Props {
   apiBaseUrl: string;
   /** Cart API tenant id (query param). */
   tenantId: string;
-  /** Cart API store_id (query param); optional if backend infers from tenant. */
+  /** Cart API store_id (query param); optional if backend infers from tenant. Also used for customer auth API. */
   storeId: string;
+  /** BaaS customer auth API origin (e.g. https://devbaasauth.example.com). */
+  authApiBaseUrl: string;
+  /** Default copy for login/register blocks when block attrs are empty. */
+  authFormDefaults: AuthFormDefaults;
   theme: 'light' | 'dark';
   accentColor: string;
   useDemoData: boolean;
@@ -17,6 +22,8 @@ interface Props {
   onApiBaseUrlChange: (value: string) => void;
   onTenantIdChange: (value: string) => void;
   onStoreIdChange: (value: string) => void;
+  onAuthApiBaseUrlChange: (value: string) => void;
+  onAuthFormDefaultsPatch: (patch: Partial<AuthFormDefaults>) => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onAccentColorChange: (value: string) => void;
   onUseDemoDataChange: (value: boolean) => void;
@@ -38,6 +45,8 @@ export function SiteSettings({
   apiBaseUrl,
   tenantId,
   storeId,
+  authApiBaseUrl,
+  authFormDefaults,
   theme,
   accentColor,
   useDemoData,
@@ -46,12 +55,19 @@ export function SiteSettings({
   onApiBaseUrlChange,
   onTenantIdChange,
   onStoreIdChange,
+  onAuthApiBaseUrlChange,
+  onAuthFormDefaultsPatch,
   onThemeChange,
   onAccentColorChange,
   onUseDemoDataChange,
   onButtonStyleChange,
   onCreateDemoStore,
 }: Props) {
+  const d = authFormDefaults;
+  const setDef = (key: keyof AuthFormDefaults, value: string) => {
+    onAuthFormDefaultsPatch({ [key]: value.trim() ? value : undefined });
+  };
+
   return (
     <section className="site-settings">
       <h3 className="sidebar-title">Website</h3>
@@ -142,8 +158,50 @@ export function SiteSettings({
         />
       </label>
       <p className="site-settings-hint">
-        Sent as <code>store_id</code> to cart and checkout endpoints when API URL is set. Leave empty to use your home page slug.
+        Sent as <code>store_id</code> to cart, checkout, and customer register/login APIs. Leave empty to use your home page slug.
       </p>
+
+      <h3 className="sidebar-title" style={{ marginTop: '1.25rem' }}>Customer auth</h3>
+      <label>
+        <span>Auth API base URL</span>
+        <input
+          type="url"
+          value={authApiBaseUrl}
+          onChange={(e) => onAuthApiBaseUrlChange(e.target.value)}
+          placeholder="https://devbaasauth.enetdefender.com"
+        />
+      </label>
+      <p className="site-settings-hint">
+        Register/login requests go to <code>/api/customers/auth/register</code> and <code>/api/customers/auth/login</code>. You can also set <code>VITE_AUTH_API_BASE_URL</code> in env.
+      </p>
+
+      <span className="toolbar-group-label" style={{ display: 'block', marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--muted, #64748b)' }}>
+        Default form copy (used when a Customer auth block field is empty)
+      </span>
+      <label>
+        <span>Email label</span>
+        <input type="text" value={d.emailLabel ?? ''} onChange={(e) => setDef('emailLabel', e.target.value)} placeholder="Email" />
+      </label>
+      <label>
+        <span>Email placeholder</span>
+        <input type="text" value={d.emailPlaceholder ?? ''} onChange={(e) => setDef('emailPlaceholder', e.target.value)} placeholder="you@example.com" />
+      </label>
+      <label>
+        <span>Password label</span>
+        <input type="text" value={d.passwordLabel ?? ''} onChange={(e) => setDef('passwordLabel', e.target.value)} placeholder="Password" />
+      </label>
+      <label>
+        <span>Password placeholder</span>
+        <input type="text" value={d.passwordPlaceholder ?? ''} onChange={(e) => setDef('passwordPlaceholder', e.target.value)} placeholder="••••••••" />
+      </label>
+      <label>
+        <span>Login submit button</span>
+        <input type="text" value={d.loginSubmitText ?? ''} onChange={(e) => setDef('loginSubmitText', e.target.value)} placeholder="Sign in" />
+      </label>
+      <label>
+        <span>Register submit button</span>
+        <input type="text" value={d.registerSubmitText ?? ''} onChange={(e) => setDef('registerSubmitText', e.target.value)} placeholder="Create account" />
+      </label>
 
       <label className="site-settings-checkbox">
         <input

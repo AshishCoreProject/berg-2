@@ -72,6 +72,7 @@ function BlockIcon({ type }: { type: string }) {
     'store/promo-banner': '▤',
     'store/testimonials': '★',
     'store/trust-badges': '✓',
+    'store/customer-auth': '◎',
     'core/form': '📋',
     'core/form-input': '⎆',
     'core/form-select': '▾',

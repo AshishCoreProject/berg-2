@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FooterLinkItem, FooterLinksConfig, StoredPage } from '@berg/schema';
 import { createFooterLinkId } from '@berg/schema';
-import { SharedFooter, SharedHeader, CartHeaderIconButton, buildDefaultFooterLinks, type HeaderFooterStyle } from '@berg/layout';
+import { SharedFooter, SharedHeader, AccountHeaderIconButton, CartHeaderIconButton, buildDefaultFooterLinks, type HeaderFooterStyle } from '@berg/layout';
 import { StyleEditor } from '@/components/controls';
 
 interface BuilderHeaderFooterProps {
@@ -165,6 +165,7 @@ export function BuilderHeaderPreview({
             className="builder-header-right-slot"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
           >
+            <AccountHeaderIconButton headerStyle={headerStyle} preview />
             <CartHeaderIconButton headerStyle={headerStyle} preview />
             <button type="button" className="builder-preview-edit-btn" onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }} aria-label="Edit header">
               Edit header

@@ -42,6 +42,8 @@ export function parseHashPayload(hash) {
             footerLinks: data.footerLinks,
             buttonStyle: data.buttonStyle,
             hiddenFromHeader: Array.isArray(data.hiddenFromHeader) ? data.hiddenFromHeader : undefined,
+            authApiBaseUrl: data.authApiBaseUrl,
+            authFormDefaults: data.authFormDefaults,
         };
     }
     catch {
