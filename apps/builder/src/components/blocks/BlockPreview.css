@@ -138,11 +138,6 @@
   border-radius: var(--radius-md);
 }
 
-/* When block is selected for editing, force light theme for readable editing (overrides inline heroBg) */
-.block-wrap.selected .block-hero-preview {
-  background-color: #f1f5f9 !important;
-}
-
 .block-content .block-hero-preview .hero-inner {
   max-width: 720px;
   margin: 0 auto;
@@ -319,9 +314,9 @@
 }
 
 .block-form-field-wrap.selected {
-  border-color: var(--accent);
+  border-color: var(--selection-accent);
   border-radius: 0;
-  background: var(--accent-muted);
+  background: var(--selection-muted);
 }
 
 .block-form-drop-hint {

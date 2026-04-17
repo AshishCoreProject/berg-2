@@ -19,6 +19,7 @@
   flex-shrink: 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
 }
 
 /* Storefront only: sticky top bar. Scoped to .site-wrap so builder SharedHeader preview (no site-wrap) is unchanged. z-index below .site-nav-backdrop (999). */
@@ -195,6 +196,7 @@
   margin-top: auto;
   background: var(--surface);
   border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
 }
 
 .site-footer-inner {

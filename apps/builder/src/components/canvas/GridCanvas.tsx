@@ -129,7 +129,8 @@ export function GridCanvas({
   const handleDropDragOver = useCallback((e: React.DragEvent) => {
     if (!e.dataTransfer?.types.includes(BLOCK_DRAG_TYPE)) return undefined;
     const t = e.target;
-    if (t instanceof Element && t.closest('.block-layer-overlay')) {
+    const overLayerOverlay = t instanceof Element && !!t.closest('.block-layer-overlay');
+    if (overLayerOverlay) {
       return false;
     }
     const type = e.dataTransfer.getData(BLOCK_DRAG_TYPE) || 'core/paragraph';

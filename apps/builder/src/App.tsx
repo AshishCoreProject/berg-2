@@ -672,7 +672,7 @@ export default function App() {
 
         return { ...d, blocks: insertIntoReal(d.blocks) };
       });
-      setSelectedBlockId(id);
+      setSelectedBlockId(parentId);
     },
     [updateDoc, viewport]
   );

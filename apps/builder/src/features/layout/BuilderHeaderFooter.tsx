@@ -90,7 +90,7 @@ export function BuilderHeaderFooter({
           <button type="button" className="builder-preview-edit-btn" onClick={(e) => { e.stopPropagation(); setEditingFooter((v) => !v); setEditingHeader(false); }} aria-label="Edit footer">Edit footer</button>
         </footer>
         {editingFooter && (
-          <div className="builder-preview-popover" onClick={(e) => e.stopPropagation()}>
+          <div className="builder-preview-popover--footer" onClick={(e) => e.stopPropagation()}>
             <StyleEditor title="Footer" values={footerStyle} onChange={onFooterStyleChange} variant="footer" />
           </div>
         )}

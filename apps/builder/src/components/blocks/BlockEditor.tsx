@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { AuthFormDefaults } from '@berg/core';
 import type { Block, BlockType } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
@@ -95,7 +95,26 @@ export function BlockEditor({
   authFormDefaults,
   onRequestContextMenu,
 }: Props) {
-  const [isHover, setIsHover] = useState(false);
+  const debugPost = useCallback(
+    (hypothesisId: string, message: string, data: Record<string, unknown>) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7505/ingest/683a73f1-d610-4c82-8646-42ffe5a930a3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a29fa2' },
+        body: JSON.stringify({
+          sessionId: 'a29fa2',
+          runId: 'content-jump-debug',
+          hypothesisId,
+          location: 'components/blocks/BlockEditor.tsx',
+          message,
+          data,
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+    },
+    []
+  );
 
   const attrs = block.attributes ?? {};
   const previewAuthProps = {
@@ -116,6 +135,7 @@ export function BlockEditor({
   }, []);
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const blockWrapRef = useRef<HTMLDivElement | null>(null);
   const draggingLayerRef = useRef<
     null | {
       childId: string;
@@ -320,19 +340,29 @@ export function BlockEditor({
 
   const handleOverlayDragOver = useCallback(
     (e: React.DragEvent) => {
-      if (!onInsertChild) return;
+      const hasLayerChildren = ((((block as unknown) as { children?: Block[] }).children ?? []).length) > 0;
+      const canAcceptLayerChildDrop =
+        !!onInsertChild &&
+        ((block.type === 'core/box' && isSelected) || hasLayerChildren);
+      if (!canAcceptLayerChildDrop) return;
       const dt = e.dataTransfer;
       const types = dt?.types ? Array.from(dt.types) : [];
       if (!types.includes(BLOCK_DRAG_TYPE)) return;
       e.preventDefault(); // allow drop
       dt!.dropEffect = 'copy';
     },
-    [onInsertChild]
+    [onInsertChild, block]
   );
 
   const handleOverlayDrop = useCallback(
     (e: React.DragEvent) => {
-      if (!onInsertChild) return;
+      const hasLayerChildren = ((((block as unknown) as { children?: Block[] }).children ?? []).length) > 0;
+      const canAcceptLayerChildDrop =
+        !!onInsertChild &&
+        ((block.type === 'core/box' && isSelected) || hasLayerChildren);
+      if (!canAcceptLayerChildDrop) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       const dt = e.dataTransfer;
@@ -344,7 +374,7 @@ export function BlockEditor({
       if (!next) return;
       onInsertChild(block.id, rawType as BlockType, next.xPct, next.yPct);
     },
-    [clientToParentPct, onInsertChild]
+    [clientToParentPct, onInsertChild, block, isSelected]
   );
 
   const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
@@ -376,6 +406,10 @@ export function BlockEditor({
     if (typographyAttrs.fontSize) s.fontSize = typographyAttrs.fontSize;
     if (typographyAttrs.fontWeight) s.fontWeight = typographyAttrs.fontWeight as React.CSSProperties['fontWeight'];
     if (typographyAttrs.fontStyle) s.fontStyle = typographyAttrs.fontStyle as React.CSSProperties['fontStyle'];
+    const textAlign = (attrs.textAlign as string) ?? '';
+    if (textAlign === 'left' || textAlign === 'center' || textAlign === 'right') {
+      s.textAlign = textAlign;
+    }
     return s;
   };
 
@@ -425,6 +459,9 @@ export function BlockEditor({
             <TextEditor
               value={(attrs.content as string) ?? ''}
               onChange={(html) => set('content', html)}
+              onTextAlignChange={(align) => {
+                set('textAlign', align);
+              }}
               placeholder="Write paragraph…"
               contentClassName="block-paragraph-inner"
               onKeyDown={(e) => {
@@ -445,6 +482,9 @@ export function BlockEditor({
             <TextEditor
               value={(attrs.content as string) ?? ''}
               onChange={(html) => set('content', html)}
+              onTextAlignChange={(align) => {
+                set('textAlign', align);
+              }}
               placeholder="Heading"
               contentClassName="block-heading-inner"
               onKeyDown={(e) => e.stopPropagation()}
@@ -796,7 +836,16 @@ export function BlockEditor({
         if (isInnerBlocksBlock(block) && block.innerBlocks) {
           return (
             <section className="block block-form block-form-preview">
-              <h3 className="block-form-title">{(attrs.title as string) || 'Form'}</h3>
+              <h3 className="block-form-title">
+                <TextEditor
+                  value={(attrs.title as string) || 'Form'}
+                  onChange={(html) => set('title', html)}
+                  placeholder="Form title"
+                  compact
+                  bare
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </h3>
               <div className="block-form-fields-preview" onClick={(e) => e.stopPropagation()}>
                 {block.innerBlocks.map((f) => (
                   <div
@@ -826,7 +875,16 @@ export function BlockEditor({
                 <div className="block-form-drop-hint">Drop fields from Form section</div>
               </div>
               <div className="block-form-actions">
-                <span className="button-link form-submit-btn">{(attrs.submitButtonText as string) || 'Submit'}</span>
+                <span className="button-link form-submit-btn">
+                  <TextEditor
+                    value={(attrs.submitButtonText as string) || 'Submit'}
+                    onChange={(html) => set('submitButtonText', html)}
+                    placeholder="Submit"
+                    compact
+                    bare
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </span>
               </div>
             </section>
           );
@@ -1051,7 +1109,44 @@ export function BlockEditor({
   };
 
   /** Builder.io-style: when toolbarInSidebar, no toolbar in canvas—only selection outline + resize handles. */
-  const showToolbarInCanvas = !toolbarInSidebar && (isHover || isSelected);
+  const showToolbarInCanvas = !toolbarInSidebar && isSelected;
+  const prevSelectedRef = useRef(false);
+  const lastRenderModeRef = useRef<string>('');
+
+  useEffect(() => {
+    const watchedTypes = new Set<Block['type']>([
+      'core/hero',
+      'core/paragraph',
+      'core/heading',
+      'core/button',
+      'store/newsletter',
+      'store/testimonials',
+    ]);
+    if (!watchedTypes.has(block.type)) return;
+    if (!isSelected && !prevSelectedRef.current) return;
+    debugPost('H1', 'selection toggle for watched block', {
+      blockId: block.id,
+      blockType: block.type,
+      wasSelected: prevSelectedRef.current,
+      isSelected,
+      useStorefrontPreview,
+    });
+    prevSelectedRef.current = isSelected;
+  }, [block.id, block.type, debugPost, isSelected, useStorefrontPreview]);
+
+  useEffect(() => {
+    if (block.type !== 'core/hero') return;
+    const wrap = blockWrapRef.current;
+    const hero = wrap?.querySelector('.block-hero-preview') as HTMLElement | null;
+    const computedBg = hero ? window.getComputedStyle(hero).backgroundColor : null;
+    debugPost('HBG1', 'hero background snapshot', {
+      blockId: block.id,
+      isSelected,
+      hasSelectedClass: !!wrap?.classList.contains('selected'),
+      heroBgAttr: (attrs.heroBackgroundColor as string | undefined) ?? null,
+      computedBackgroundColor: computedBg,
+    });
+  }, [attrs.heroBackgroundColor, block.id, block.type, debugPost, isSelected]);
 
   /** Height in px from layout – applied to block-main so sidebar Height = actual block height */
   const layout = ((attrs.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
@@ -1063,7 +1158,44 @@ export function BlockEditor({
   /** Builder.io-style: canvas always shows pure preview; all editing in sidebar. */
   const renderCanvasContent = () => {
     const fullBleed = !!(attrs.fullBleed as boolean);
+    const inlineEditableTypes = new Set<Block['type']>([
+      'core/paragraph',
+      'core/heading',
+      'core/button',
+      'core/hero',
+      'core/list',
+      'core/quote',
+      'core/form',
+      'store/promo-banner',
+      'store/newsletter',
+      'store/testimonials',
+      'store/trust-badges',
+      'store/product-grid',
+      'store/collection-list',
+    ]);
+    if (inlineEditableTypes.has(block.type)) {
+      if (lastRenderModeRef.current !== 'inline-editable-stable') {
+        lastRenderModeRef.current = 'inline-editable-stable';
+        debugPost('H2', 'render mode switched', {
+          blockId: block.id,
+          blockType: block.type,
+          mode: 'inline-editable-stable',
+          fullBleed,
+          isSelected,
+        });
+      }
+      return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
+    }
     if (!useStorefrontPreview) {
+      if (lastRenderModeRef.current !== 'local-preview') {
+        lastRenderModeRef.current = 'local-preview';
+        debugPost('H3', 'render mode switched', {
+          blockId: block.id,
+          blockType: block.type,
+          mode: 'local-preview',
+          fullBleed,
+        });
+      }
       return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
     }
     // Box is a purely-visual container in the builder; render the local preview so
@@ -1092,17 +1224,25 @@ export function BlockEditor({
         {...previewAuthProps}
       />
     );
+    if (lastRenderModeRef.current !== 'storefront-renderer') {
+      lastRenderModeRef.current = 'storefront-renderer';
+      debugPost('H4', 'render mode switched', {
+        blockId: block.id,
+        blockType: block.type,
+        mode: 'storefront-renderer',
+        fullBleed,
+      });
+    }
     return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
   };
 
   const layerChildren = (((block as unknown) as { children?: Block[] }).children ?? []) as Block[];
-  const shouldRenderLayerOverlay = layerChildren.length > 0 || !!onInsertChild;
+  const shouldRenderLayerOverlay = layerChildren.length > 0 || (block.type === 'core/box' && !!onInsertChild);
 
   return (
     <div
-      className={`block-wrap ${isSelected ? 'selected' : ''} ${isHover ? 'is-hover' : ''} ${isDragging ? 'is-dragging' : ''} ${isLayerChild ? 'is-layer-child' : ''}`}
-      onMouseEnter={() => setIsHover(true)}
-      onMouseLeave={() => setIsHover(false)}
+      ref={blockWrapRef}
+      className={`block-wrap ${isSelected ? 'selected' : ''} ${isDragging ? 'is-dragging' : ''} ${isLayerChild ? 'is-layer-child' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -1176,7 +1316,9 @@ export function BlockEditor({
             <div
               ref={overlayRef}
               className="block-layer-overlay"
+              onDragOverCapture={handleOverlayDragOver}
               onDragOver={handleOverlayDragOver}
+              onDropCapture={handleOverlayDrop}
               onDrop={handleOverlayDrop}
               onPointerMove={handleOverlayPointerMove}
               onPointerUp={handleOverlayPointerUp}
@@ -1211,6 +1353,12 @@ export function BlockEditor({
                       // Prevent selecting the parent when interacting with the layer.
                       e.stopPropagation();
                     }}
+                    onDragOverCapture={(e) => {
+                      handleOverlayDragOver(e);
+                    }}
+                    onDropCapture={(e) => {
+                      handleOverlayDrop(e);
+                    }}
                     onPointerDown={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
@@ -1237,6 +1385,12 @@ export function BlockEditor({
                       } catch {
                         /* ignore */
                       }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelectNestedBlock?.(child.id);
+                      onRequestContextMenu?.(child.id, e.clientX, e.clientY);
                     }}
                   >
                     {childSelected && (
