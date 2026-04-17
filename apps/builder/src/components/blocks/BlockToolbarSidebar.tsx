@@ -1543,7 +1543,7 @@ export function BlockToolbarSidebar({
                 value={(() => {
                   if (isLayerChildSelected) {
                     const layerLayout = attrs.layerLayout as { hPct?: number } | undefined;
-                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 25;
                     const parentH = layerParentHeightPx ?? 0;
                     if (parentH <= 0) return 40;
                     const px = Math.round((hPct / 100) * parentH);
@@ -1623,93 +1623,93 @@ export function BlockToolbarSidebar({
               <span className="toolbar-checkbox-text">Full bleed (left to right)</span>
             </label>
           </div>
-          <CollapsibleSection title="Spacing" defaultOpen={false} className="sidebar-section-spacing">
-            <div className="block-toolbar block-toolbar-in-sidebar">
-              <div className="spacing-card">
-                <div className="spacing-visual">
-                  <div className="spacing-visual-margin">
-                    <div className="spacing-visual-padding">
-                      <div className="spacing-visual-content" />
-                    </div>
-                  </div>
-                </div>
-                <div className="spacing-controls">
-                  <div className="spacing-group">
-                    <span className="spacing-group-title">Margins</span>
-                    {([
-                      { key: 'marginTop', label: 'Top' },
-                      { key: 'marginRight', label: 'Right' },
-                      { key: 'marginBottom', label: 'Bottom' },
-                      { key: 'marginLeft', label: 'Left' },
-                    ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
-                      const raw = (attrs[key] as string | undefined) ?? '';
-                      const mode = parseSpacingMode(raw);
-                      const value = parseSpacingValue(raw);
-                      return (
-                        <label key={key} className="spacing-row">
-                          <span className="spacing-row-label">{label}</span>
-                          <select
-                            className="spacing-row-mode"
-                            value={mode}
-                            onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
-                            aria-label={`Margin ${label.toLowerCase()} mode`}
-                          >
-                            <option value="auto">auto</option>
-                            <option value="fixed">set</option>
-                          </select>
-                          <input
-                            type="text"
-                            className="spacing-row-value"
-                            value={value}
-                            onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
-                            disabled={mode === 'auto'}
-                            placeholder={label === 'Top' || label === 'Bottom' ? '30px' : '0px'}
-                            aria-label={`Margin ${label.toLowerCase()} value`}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div className="spacing-group">
-                    <span className="spacing-group-title">Padding</span>
-                    {([
-                      { key: 'paddingTop', label: 'Top' },
-                      { key: 'paddingRight', label: 'Right' },
-                      { key: 'paddingBottom', label: 'Bottom' },
-                      { key: 'paddingLeft', label: 'Left' },
-                    ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
-                      const raw = (attrs[key] as string | undefined) ?? '';
-                      const mode = parseSpacingMode(raw);
-                      const value = parseSpacingValue(raw);
-                      return (
-                        <label key={key} className="spacing-row">
-                          <span className="spacing-row-label">{label}</span>
-                          <select
-                            className="spacing-row-mode"
-                            value={mode}
-                            onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
-                            aria-label={`Padding ${label.toLowerCase()} mode`}
-                          >
-                            <option value="auto">auto</option>
-                            <option value="fixed">set</option>
-                          </select>
-                          <input
-                            type="text"
-                            className="spacing-row-value"
-                            value={value}
-                            onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
-                            disabled={mode === 'auto'}
-                            placeholder={label === 'Top' || label === 'Bottom' ? '0px' : '30px'}
-                            aria-label={`Padding ${label.toLowerCase()} value`}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
+        </div>
+      </CollapsibleSection>
+      <CollapsibleSection title="Spacing" defaultOpen={false} className="sidebar-section-spacing">
+        <div className="block-toolbar block-toolbar-in-sidebar">
+          <div className="spacing-card">
+            <div className="spacing-visual">
+              <div className="spacing-visual-margin">
+                <div className="spacing-visual-padding">
+                  <div className="spacing-visual-content" />
                 </div>
               </div>
             </div>
-          </CollapsibleSection>
+            <div className="spacing-controls">
+              <div className="spacing-group">
+                <span className="spacing-group-title">Margins</span>
+                {([
+                  { key: 'marginTop', label: 'Top' },
+                  { key: 'marginRight', label: 'Right' },
+                  { key: 'marginBottom', label: 'Bottom' },
+                  { key: 'marginLeft', label: 'Left' },
+                ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
+                  const raw = (attrs[key] as string | undefined) ?? '';
+                  const mode = parseSpacingMode(raw);
+                  const value = parseSpacingValue(raw);
+                  return (
+                    <label key={key} className="spacing-row">
+                      <span className="spacing-row-label">{label}</span>
+                      <select
+                        className="spacing-row-mode"
+                        value={mode}
+                        onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
+                        aria-label={`Margin ${label.toLowerCase()} mode`}
+                      >
+                        <option value="auto">auto</option>
+                        <option value="fixed">set</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="spacing-row-value"
+                        value={value}
+                        onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
+                        disabled={mode === 'auto'}
+                        placeholder={label === 'Top' || label === 'Bottom' ? '30px' : '0px'}
+                        aria-label={`Margin ${label.toLowerCase()} value`}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="spacing-group">
+                <span className="spacing-group-title">Padding</span>
+                {([
+                  { key: 'paddingTop', label: 'Top' },
+                  { key: 'paddingRight', label: 'Right' },
+                  { key: 'paddingBottom', label: 'Bottom' },
+                  { key: 'paddingLeft', label: 'Left' },
+                ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
+                  const raw = (attrs[key] as string | undefined) ?? '';
+                  const mode = parseSpacingMode(raw);
+                  const value = parseSpacingValue(raw);
+                  return (
+                    <label key={key} className="spacing-row">
+                      <span className="spacing-row-label">{label}</span>
+                      <select
+                        className="spacing-row-mode"
+                        value={mode}
+                        onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
+                        aria-label={`Padding ${label.toLowerCase()} mode`}
+                      >
+                        <option value="auto">auto</option>
+                        <option value="fixed">set</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="spacing-row-value"
+                        value={value}
+                        onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
+                        disabled={mode === 'auto'}
+                        placeholder={label === 'Top' || label === 'Bottom' ? '0px' : '30px'}
+                        aria-label={`Padding ${label.toLowerCase()} value`}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </CollapsibleSection>
       <CollapsibleSection title="Actions" defaultOpen className="sidebar-section-actions">

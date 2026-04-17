@@ -259,9 +259,12 @@ export function BuilderFooterPreview({
         </button>
       </div>
       {editing && (
-        <div className="builder-preview-popover" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="builder-preview-popover builder-preview-popover--footer"
+          onClick={(e) => e.stopPropagation()}
+        >
           <StyleEditor title="Footer" values={footerStyle} onChange={onFooterStyleChange} variant="footer" />
-          <div style={{ marginTop: '1rem' }}>
+          <div className="builder-footer-links-panel">
             <div className="sidebar-title" style={{ marginBottom: '0.5rem' }}>Footer Links</div>
             <FooterLinksEditor cfg={cfg} onChange={(next) => onFooterLinksChange(next)} />
           </div>

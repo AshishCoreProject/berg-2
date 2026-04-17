@@ -1,4 +1,5 @@
 export { BlockRenderer } from './BlockRenderer';
+export { buildSpacingStyle, normalizeSpacingValue } from './blockSpacing';
 export { ProductGrid } from './ProductGrid';
 export { CollectionList } from './CollectionList';
 export { resolveGridLayout } from './blockLayout';

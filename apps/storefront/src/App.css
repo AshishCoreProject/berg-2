@@ -798,6 +798,9 @@
 }
 
 .product-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--surface);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -822,6 +825,10 @@
 }
 
 .product-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   padding: 1rem;
 }
 
@@ -849,7 +856,11 @@
 }
 
 .product-link {
-  display: inline-block;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
+  text-align: center;
   padding: var(--button-padding, 0.4rem 0.8rem);
   background: var(--button-bg, var(--accent));
   color: var(--button-color, var(--bg));

@@ -1336,7 +1336,7 @@ export function BlockEditor({
                 const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
                 const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
                 const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
-                const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 25;
                 const childSelected = !!isNestedSelected?.(child.id);
                 return (
                   <div

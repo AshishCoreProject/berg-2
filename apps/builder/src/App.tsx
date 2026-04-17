@@ -479,6 +479,40 @@ export default function App() {
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.isContentEditable) return true;
+      const tag = target.tagName.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || tag === 'select';
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) return;
+
+      const key = e.key.toLowerCase();
+      const mod = e.metaKey || e.ctrlKey;
+
+      if (mod && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
+        return;
+      }
+
+      // Windows/Linux redo shortcut.
+      if (e.ctrlKey && !e.metaKey && key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [handleUndo, handleRedo]);
+
   const addPageConfirm = useCallback(
     (title: string, slug: string) => {
       const id = createPageId();
@@ -597,7 +631,7 @@ export default function App() {
       // (Position is already percent-based; this makes the initial layer visible even
       // before the user resizes.)
       const wPctDefault = 25;
-      const hPctDefault = 10;
+      const hPctDefault = 25;
 
       const clampLayerX = (n: number) => clampPct(n);
       const clampLayerY = (n: number) => clampPct(n);
@@ -1578,7 +1612,7 @@ export default function App() {
 
             if (parentInfo.container === 'children') {
               const layerLayout = found.attributes?.layerLayout as { hPct?: number } | undefined;
-              const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+              const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 25;
               const parentHeightPx = computeHeightPxById(parentInfo.parent.id);
               return (parentHeightPx * hPct) / 100;
             }
