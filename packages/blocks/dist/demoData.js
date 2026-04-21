@@ -178,6 +178,11 @@ export const DEMO_PRODUCTS = [
         handle: 'travel-duffel-bag',
     },
 ];
+for (const product of DEMO_PRODUCTS) {
+    if (!product.variant_id) {
+        product.variant_id = `demo-variant-${product.id}`;
+    }
+}
 export const DEMO_COLLECTIONS = [
     { id: 'col-1', title: 'Apparel', description: 'T-shirts, jackets, and more.', handle: 'apparel', productCount: 2 },
     { id: 'col-2', title: 'Electronics', description: 'Audio and accessories.', handle: 'electronics', productCount: 1 },

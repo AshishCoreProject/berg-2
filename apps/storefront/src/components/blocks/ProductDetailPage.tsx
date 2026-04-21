@@ -19,6 +19,7 @@ type LoadedProduct = {
   image?: string;
   images?: string[];
   handle: string;
+  variant_id?: string;
 };
 
 const MAX_QTY = 99;
@@ -97,10 +98,26 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, tenantId, s
   const safeIndex = Math.min(selectedIndex, Math.max(0, images.length - 1));
   const mainSrc = images[safeIndex];
   const showGalleryStrip = images.length > 1;
+  const queryVariantIdRaw =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("variant_id")
+      : null;
+  const queryVariantId =
+    typeof queryVariantIdRaw === "string" ? queryVariantIdRaw.trim() : "";
+  const productVariantId =
+    typeof product.variant_id === "string" ? product.variant_id.trim() : "";
+  const effectiveVariantId = productVariantId || queryVariantId || undefined;
+  const variantMissing = !useDemoData && !effectiveVariantId;
 
-  const line = { id: String(product.id), name: product.title, price: product.price };
+  const line = {
+    id: String(product.id),
+    variant_id: effectiveVariantId,
+    name: product.title,
+    price: product.price,
+  };
 
   const handleAddToCart = () => {
+    if (variantMissing) return;
     addItem(line, quantity);
     setAddedFeedback(true);
     if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
@@ -111,6 +128,7 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, tenantId, s
   };
 
   const handleBuyNow = () => {
+    if (variantMissing) return;
     addItem(line, quantity);
     onNavigate('/cart');
   };
@@ -172,13 +190,18 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, tenantId, s
               </div>
             </div>
             <div className="product-detail-actions">
-              <button type="button" className="product-detail-btn product-detail-btn-primary" onClick={handleAddToCart}>
+              <button type="button" className="product-detail-btn product-detail-btn-primary" onClick={handleAddToCart} disabled={variantMissing}>
                 {addedFeedback ? 'Added' : 'Add to cart'}
               </button>
-              <button type="button" className="product-detail-btn product-detail-btn-secondary" onClick={handleBuyNow}>
+              <button type="button" className="product-detail-btn product-detail-btn-secondary" onClick={handleBuyNow} disabled={variantMissing}>
                 Buy now
               </button>
             </div>
+            {variantMissing && (
+              <p className="product-grid-error" role="alert">
+                Variant unavailable for this product.
+              </p>
+            )}
           </div>
         </div>
       </article>

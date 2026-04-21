@@ -59,6 +59,37 @@
   background: var(--accent-muted);
 }
 
+/* Desktop nav alignment (inline nav hidden below 1024px). */
+.site-header-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.75rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1025px) {
+  .site-header-row--nav-right .site-nav {
+    margin-left: auto;
+  }
+
+  .site-header-row--nav-left .site-header-right-slot,
+  .site-header-row--nav-left .builder-header-right-slot {
+    margin-left: auto;
+  }
+
+  .site-header-row--nav-center .site-nav {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .site-header-row--nav-center .site-header-right-slot,
+  .site-header-row--nav-center .builder-header-right-slot {
+    flex-shrink: 0;
+  }
+}
+
 .site-nav-toggle {
   display: none;
   align-items: center;

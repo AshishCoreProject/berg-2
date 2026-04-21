@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import type { AuthFormDefaults } from '@berg/core';
 import type { Block, BlockType } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
@@ -95,27 +95,6 @@ export function BlockEditor({
   authFormDefaults,
   onRequestContextMenu,
 }: Props) {
-  const debugPost = useCallback(
-    (hypothesisId: string, message: string, data: Record<string, unknown>) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7505/ingest/683a73f1-d610-4c82-8646-42ffe5a930a3', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a29fa2' },
-        body: JSON.stringify({
-          sessionId: 'a29fa2',
-          runId: 'content-jump-debug',
-          hypothesisId,
-          location: 'components/blocks/BlockEditor.tsx',
-          message,
-          data,
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-    },
-    []
-  );
-
   const attrs = block.attributes ?? {};
   const previewAuthProps = {
     authApiBaseUrl,
@@ -931,6 +910,8 @@ export function BlockEditor({
         const btnStyle: React.CSSProperties = {};
         if (attrs.buttonBackgroundColor) btnStyle.backgroundColor = attrs.buttonBackgroundColor as string;
         if (attrs.buttonColor) btnStyle.color = attrs.buttonColor as string;
+        const subtitleStyle: React.CSSProperties = {};
+        if (attrs.textColor) subtitleStyle.color = attrs.textColor as string;
         return (
           <section className="block block-newsletter" style={style}>
             <div className="newsletter-inner">
@@ -944,7 +925,7 @@ export function BlockEditor({
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </h3>
-              <p className="newsletter-subtitle">
+              <p className="newsletter-subtitle" style={Object.keys(subtitleStyle).length ? subtitleStyle : undefined}>
                 <TextEditor
                   value={subtitle}
                   onChange={(html) => set('subtitle', html)}
@@ -1110,43 +1091,6 @@ export function BlockEditor({
 
   /** Builder.io-style: when toolbarInSidebar, no toolbar in canvas—only selection outline + resize handles. */
   const showToolbarInCanvas = !toolbarInSidebar && isSelected;
-  const prevSelectedRef = useRef(false);
-  const lastRenderModeRef = useRef<string>('');
-
-  useEffect(() => {
-    const watchedTypes = new Set<Block['type']>([
-      'core/hero',
-      'core/paragraph',
-      'core/heading',
-      'core/button',
-      'store/newsletter',
-      'store/testimonials',
-    ]);
-    if (!watchedTypes.has(block.type)) return;
-    if (!isSelected && !prevSelectedRef.current) return;
-    debugPost('H1', 'selection toggle for watched block', {
-      blockId: block.id,
-      blockType: block.type,
-      wasSelected: prevSelectedRef.current,
-      isSelected,
-      useStorefrontPreview,
-    });
-    prevSelectedRef.current = isSelected;
-  }, [block.id, block.type, debugPost, isSelected, useStorefrontPreview]);
-
-  useEffect(() => {
-    if (block.type !== 'core/hero') return;
-    const wrap = blockWrapRef.current;
-    const hero = wrap?.querySelector('.block-hero-preview') as HTMLElement | null;
-    const computedBg = hero ? window.getComputedStyle(hero).backgroundColor : null;
-    debugPost('HBG1', 'hero background snapshot', {
-      blockId: block.id,
-      isSelected,
-      hasSelectedClass: !!wrap?.classList.contains('selected'),
-      heroBgAttr: (attrs.heroBackgroundColor as string | undefined) ?? null,
-      computedBackgroundColor: computedBg,
-    });
-  }, [attrs.heroBackgroundColor, block.id, block.type, debugPost, isSelected]);
 
   /** Height in px from layout – applied to block-main so sidebar Height = actual block height */
   const layout = ((attrs.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
@@ -1174,28 +1118,9 @@ export function BlockEditor({
       'store/collection-list',
     ]);
     if (inlineEditableTypes.has(block.type)) {
-      if (lastRenderModeRef.current !== 'inline-editable-stable') {
-        lastRenderModeRef.current = 'inline-editable-stable';
-        debugPost('H2', 'render mode switched', {
-          blockId: block.id,
-          blockType: block.type,
-          mode: 'inline-editable-stable',
-          fullBleed,
-          isSelected,
-        });
-      }
       return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
     }
     if (!useStorefrontPreview) {
-      if (lastRenderModeRef.current !== 'local-preview') {
-        lastRenderModeRef.current = 'local-preview';
-        debugPost('H3', 'render mode switched', {
-          blockId: block.id,
-          blockType: block.type,
-          mode: 'local-preview',
-          fullBleed,
-        });
-      }
       return fullBleed ? <div className="block-full-bleed-preview">{renderContent()}</div> : renderContent();
     }
     // Box is a purely-visual container in the builder; render the local preview so
@@ -1224,15 +1149,6 @@ export function BlockEditor({
         {...previewAuthProps}
       />
     );
-    if (lastRenderModeRef.current !== 'storefront-renderer') {
-      lastRenderModeRef.current = 'storefront-renderer';
-      debugPost('H4', 'render mode switched', {
-        blockId: block.id,
-        blockType: block.type,
-        mode: 'storefront-renderer',
-        fullBleed,
-      });
-    }
     return fullBleed ? <div className="block-full-bleed-preview">{content}</div> : content;
   };
 

@@ -22,12 +22,7 @@ interface Props {
      * its own overlay UI.
      */
     renderChildren?: boolean;
-    /**
-     * When false, margin/padding from attributes are not wrapped in an inner div;
-     * the grid/storefront cell (or other host) should apply `buildSpacingStyle(attrs)` instead.
-     */
-    applySpacingWrapper?: boolean;
 }
-export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, applySpacingWrapper, layoutViewport, }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
+export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport, }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
 export {};
 //# sourceMappingURL=BlockRenderer.d.ts.map

@@ -11,6 +11,7 @@ export interface DemoProduct {
   /** Extra gallery URLs; first entry should match `image` when both are set. */
   images?: string[];
   handle: string;
+  variant_id?: string;
 }
 
 export interface DemoCollection {
@@ -199,6 +200,12 @@ export const DEMO_PRODUCTS: DemoProduct[] = [
     handle: 'travel-duffel-bag',
   },
 ];
+
+for (const product of DEMO_PRODUCTS) {
+  if (!product.variant_id) {
+    product.variant_id = `demo-variant-${product.id}`;
+  }
+}
 
 export const DEMO_COLLECTIONS: DemoCollection[] = [
   { id: 'col-1', title: 'Apparel', description: 'T-shirts, jackets, and more.', handle: 'apparel', productCount: 2 },

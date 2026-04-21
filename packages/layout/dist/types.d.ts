@@ -56,6 +56,11 @@ export type HeaderFooterStyle = {
      * Optional custom account icon image URL (or data URL from upload).
      */
     accountIconUrl?: string;
+    /**
+     * Desktop main nav link group alignment (drawer unchanged on small screens).
+     * Defaults to "right" when undefined (nav grouped toward cart/account).
+     */
+    navAlign?: 'left' | 'center' | 'right';
 };
 export type ViewportMode = 'auto' | 'desktop' | 'mobile';
 export interface SharedHeaderProps {

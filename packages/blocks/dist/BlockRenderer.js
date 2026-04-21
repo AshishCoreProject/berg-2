@@ -6,11 +6,24 @@ import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
 import { CustomerAuthBlock } from './CustomerAuthBlock';
 import { resolveGridLayout } from './blockLayout';
-import { buildSpacingStyle } from './blockSpacing';
 /**
  * Renders a single block to semantic HTML for SEO and accessibility.
  * Each block type maps to appropriate tags (section, article, h1–h6, p, figure, etc.).
  */
+const SPACING_KEYS = ['marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'];
+/** Normalize value: "12" -> "12px", "1.5rem" -> "24px" (1rem=16px). Always output px for reliability. */
+function normalizeSpacingValue(v) {
+    const trimmed = v.trim();
+    if (!trimmed)
+        return '';
+    const numMatch = trimmed.match(/^(\d+(?:\.\d+)?)$/);
+    if (numMatch)
+        return `${numMatch[1]}px`;
+    const remMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*rem$/i);
+    if (remMatch)
+        return `${Math.round(parseFloat(remMatch[1]) * 16)}px`;
+    return trimmed;
+}
 /** Form container: renders fields + submit button, runs submitScript on mount */
 function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, layoutViewport, }) {
     const formRef = useRef(null);
@@ -27,11 +40,22 @@ function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, 
     }, [submitScript]);
     return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, layoutViewport: layoutViewport }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
 }
-export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, applySpacingWrapper = true, layoutViewport = 'desktop', }) {
+function buildSpacingStyle(attrs) {
+    const s = {};
+    for (const k of SPACING_KEYS) {
+        const v = attrs[k];
+        const str = v == null ? '' : typeof v === 'number' ? String(v) : typeof v === 'string' ? v : '';
+        if (str) {
+            const normalized = normalizeSpacingValue(str);
+            if (normalized)
+                s[k] = normalized;
+        }
+    }
+    return s;
+}
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport = 'desktop', }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
-    const spacingKeys = Object.keys(spacingStyle);
-    const hasSpacing = spacingKeys.length > 0;
     const textAlign = attrs.textAlign ?? 'left';
     const verticalAlign = attrs.verticalAlign ?? 'center';
     const normalizedTextAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'left' ? textAlign : 'left';
@@ -57,17 +81,8 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
         return s;
     };
     const wrapWithSpacing = (el) => {
-        if (!hasSpacing)
+        if (Object.keys(spacingStyle).length === 0)
             return el;
-        if (!applySpacingWrapper) {
-            // #region agent log
-            fetch('http://127.0.0.1:7505/ingest/683a73f1-d610-4c82-8646-42ffe5a930a3', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '36bd09' }, body: JSON.stringify({ sessionId: '36bd09', runId: 'spacing-host-verify', hypothesisId: 'H5', location: 'packages/blocks/src/BlockRenderer.tsx:wrapWithSpacing:deferred', message: 'spacing omitted here; expected on grid/storefront cell', data: { blockId: block.id, blockType: block.type, spacingKeys }, timestamp: Date.now() }) }).catch(() => { });
-            // #endregion
-            return el;
-        }
-        // #region agent log
-        fetch('http://127.0.0.1:7505/ingest/683a73f1-d610-4c82-8646-42ffe5a930a3', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '36bd09' }, body: JSON.stringify({ sessionId: '36bd09', runId: 'spacing-host-verify', hypothesisId: 'H6', location: 'packages/blocks/src/BlockRenderer.tsx:wrapWithSpacing:inner', message: 'spacing applied via inner wrapper', data: { blockId: block.id, blockType: block.type, spacingKeys }, timestamp: Date.now() }) }).catch(() => { });
-        // #endregion
         return (_jsx("div", { style: { ...spacingStyle, width: '100%', height: '100%', boxSizing: 'border-box' }, children: el }));
     };
     let content = null;
@@ -362,7 +377,10 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeI
                 btnStyle.backgroundColor = attrs.buttonBackgroundColor;
             if (attrs.buttonColor)
                 btnStyle.color = attrs.buttonColor;
-            content = (_jsx("section", { className: "block block-newsletter", style: style, children: _jsxs("div", { className: "newsletter-inner", children: [_jsx("h3", { className: "newsletter-title", style: Object.keys(titleStyle).length > 1 ? titleStyle : undefined, children: isHtml(title) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(title) } }) : title }), _jsx("p", { className: "newsletter-subtitle", children: isHtml(subtitle) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(subtitle) } }) : subtitle }), _jsxs("form", { className: "newsletter-form", onSubmit: (e) => e.preventDefault(), children: [_jsx("input", { type: "email", placeholder: "Enter your email", className: "newsletter-input", "aria-label": "Email" }), _jsx("button", { type: "submit", className: "button-link newsletter-btn", style: Object.keys(btnStyle).length ? btnStyle : undefined, children: isHtml(buttonText) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(buttonText) } }) : buttonText })] })] }) }));
+            const subtitleStyle = {};
+            if (attrs.textColor)
+                subtitleStyle.color = attrs.textColor;
+            content = (_jsx("section", { className: "block block-newsletter", style: style, children: _jsxs("div", { className: "newsletter-inner", children: [_jsx("h3", { className: "newsletter-title", style: Object.keys(titleStyle).length > 1 ? titleStyle : undefined, children: isHtml(title) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(title) } }) : title }), _jsx("p", { className: "newsletter-subtitle", style: Object.keys(subtitleStyle).length ? subtitleStyle : undefined, children: isHtml(subtitle) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(subtitle) } }) : subtitle }), _jsxs("form", { className: "newsletter-form", onSubmit: (e) => e.preventDefault(), children: [_jsx("input", { type: "email", placeholder: "Enter your email", className: "newsletter-input", "aria-label": "Email" }), _jsx("button", { type: "submit", className: "button-link newsletter-btn", style: Object.keys(btnStyle).length ? btnStyle : undefined, children: isHtml(buttonText) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(buttonText) } }) : buttonText })] })] }) }));
             break;
         }
         case 'core/form': {

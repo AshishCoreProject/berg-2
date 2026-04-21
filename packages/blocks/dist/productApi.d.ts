@@ -14,6 +14,7 @@ export interface NormalizedProduct {
     image?: string;
     images?: string[];
     handle: string;
+    variant_id?: string;
 }
 export interface ListProductsOptions {
     apiBaseUrl: string;

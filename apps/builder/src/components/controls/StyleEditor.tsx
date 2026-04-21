@@ -19,6 +19,8 @@ export interface StyleValues {
   showAccountIcon?: boolean;
   accountIconColor?: string;
   accountIconUrl?: string;
+  /** Header only: desktop nav link alignment. */
+  navAlign?: "left" | "center" | "right";
   borderRadius?: string;
   padding?: string;
   boxShadow?: string;
@@ -252,6 +254,26 @@ export function StyleEditor({ title, values, onChange, variant }: Props) {
                     />
                   </div>
                 </label>
+                {variant === "header" && (
+                  <label className="style-editor-row">
+                    <span>Nav link alignment</span>
+                    <select
+                      className="style-editor-select"
+                      value={values.navAlign ?? "right"}
+                      onChange={(e) =>
+                        set(
+                          "navAlign",
+                          e.target.value as "left" | "center" | "right",
+                        )
+                      }
+                      aria-label="Desktop navigation link alignment"
+                    >
+                      <option value="left">Left</option>
+                      <option value="center">Center</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </label>
+                )}
               </>
             )}
           </div>

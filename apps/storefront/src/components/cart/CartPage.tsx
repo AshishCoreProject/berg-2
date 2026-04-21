@@ -37,6 +37,11 @@ function resolveCartItemLabel(item: Record<string, unknown>): string {
   return id;
 }
 
+function resolveText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
 export function CartPage({
   onNavigate,
   cartApiConfigured,
@@ -124,13 +129,37 @@ export function CartPage({
                 const qty = item.quantity ?? 1;
                 const line = (item.price ?? 0) * qty;
                 const label = resolveCartItemLabel(item as Record<string, unknown>);
+                const image = resolveText((item as Record<string, unknown>).image);
+                const description = resolveText((item as Record<string, unknown>).description);
+                const variantTitle = resolveText((item as Record<string, unknown>).variant_title);
+                const variantOptionsRaw = (item as Record<string, unknown>).variant_options;
+                const variantOptions = Array.isArray(variantOptionsRaw)
+                  ? variantOptionsRaw
+                      .filter((entry): entry is string => typeof entry === 'string')
+                      .map((entry) => entry.trim())
+                      .filter(Boolean)
+                  : [];
+                const variantText = variantTitle || (variantOptions.length ? variantOptions.join(' / ') : '');
                 return (
                   <li key={String(item.id)} className="storefront-cart-line">
-                    <div className="storefront-cart-line-info">
-                      <span className="storefront-cart-line-name">{label}</span>
-                      <span className="storefront-cart-line-meta">
-                        ${(item.price ?? 0).toFixed(2)} × {qty}
-                      </span>
+                    <div className="storefront-cart-line-main">
+                      {image ? (
+                        <div className="storefront-cart-line-image-wrap">
+                          <img src={image} alt={label} className="storefront-cart-line-image" />
+                        </div>
+                      ) : null}
+                      <div className="storefront-cart-line-info">
+                        <span className="storefront-cart-line-name">{label}</span>
+                        {description ? (
+                          <span className="storefront-cart-line-description">{description}</span>
+                        ) : null}
+                        {variantText ? (
+                          <span className="storefront-cart-line-variant">{variantText}</span>
+                        ) : null}
+                        <span className="storefront-cart-line-meta">
+                          ${(item.price ?? 0).toFixed(2)} × {qty}
+                        </span>
+                      </div>
                     </div>
                     <div className="storefront-cart-line-actions">
                       <span className="storefront-cart-line-total">${line.toFixed(2)}</span>

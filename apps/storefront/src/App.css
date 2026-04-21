@@ -84,6 +84,37 @@
   background: var(--accent-muted);
 }
 
+/* Desktop nav alignment (matches @berg/layout layout.css; inline nav hidden below 1024px). */
+.site-header-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.75rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1025px) {
+  .site-header-row--nav-right .site-nav {
+    margin-left: auto;
+  }
+
+  .site-header-row--nav-left .site-header-right-slot,
+  .site-header-row--nav-left .builder-header-right-slot {
+    margin-left: auto;
+  }
+
+  .site-header-row--nav-center .site-nav {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .site-header-row--nav-center .site-header-right-slot,
+  .site-header-row--nav-center .builder-header-right-slot {
+    flex-shrink: 0;
+  }
+}
+
 /* Tablet/mobile header drawer */
 .site-nav-toggle {
   display: none;
@@ -599,7 +630,8 @@
   display: inline-block;
   padding: var(--button-padding, 0.6rem 1.25rem);
   background: var(--button-bg, var(--accent));
-  color: var(--button-color, var(--bg));
+  /* Match builder: default label uses accent foreground, not page --bg (light theme --bg is near-white). */
+  color: var(--button-color, var(--accent-foreground));
   font-family: var(--button-font, inherit);
   border-radius: var(--button-radius, 8px);
   font-weight: 500;
@@ -609,6 +641,17 @@
 .button-link:hover {
   /* opacity: 0.9; */
   color: #fff;
+  text-decoration: none;
+}
+
+/* Hero CTA: match builder (black label on colored button); keep global .button-link for other blocks. */
+.block-hero .hero-cta .button-link {
+  color: var(--button-color, #000000);
+}
+
+.block-hero .hero-cta .button-link:hover {
+  color: var(--button-color, #000000);
+  opacity: 0.9;
   text-decoration: none;
 }
 
@@ -641,15 +684,15 @@
   justify-content: center;
 }
 
-/* Light theme: hero uses light background and dark text */
+/* Light theme: hero uses light background; title/subtitle match builder (black). No !important so inline block colors win. */
 [data-theme="light"] .block-hero {
   background-color: #f1f5f9 !important;
 }
 [data-theme="light"] .block-hero .hero-title {
-  color: #0f172a !important;
+  color: #000000;
 }
 [data-theme="light"] .block-hero .hero-subtitle {
-  color: #475569 !important;
+  color: #000000;
 }
 
 .hero-inner {
@@ -1475,6 +1518,31 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.storefront-cart-line-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
+.storefront-cart-line-image-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+}
+
+.storefront-cart-line-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .storefront-cart-line-info {
   display: flex;
   flex-direction: column;
@@ -1490,6 +1558,20 @@
 .storefront-cart-line-meta {
   font-size: 0.875rem;
   color: var(--muted);
+}
+
+.storefront-cart-line-description {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.storefront-cart-line-variant {
+  font-size: 0.8125rem;
+  color: var(--text);
 }
 
 .storefront-cart-line-actions {

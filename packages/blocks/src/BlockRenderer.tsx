@@ -595,11 +595,17 @@ export function BlockRenderer({
       const btnStyle: React.CSSProperties = {};
       if (attrs.buttonBackgroundColor) btnStyle.backgroundColor = attrs.buttonBackgroundColor as string;
       if (attrs.buttonColor) btnStyle.color = attrs.buttonColor as string;
+      const subtitleStyle: React.CSSProperties = {};
+      if (attrs.textColor) subtitleStyle.color = attrs.textColor as string;
       content = (
         <section className="block block-newsletter" style={style}>
           <div className="newsletter-inner">
-            <h3 className="newsletter-title" style={Object.keys(titleStyle).length > 1 ? titleStyle : undefined}>{isHtml(title) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(title) }} /> : title}</h3>
-            <p className="newsletter-subtitle">{isHtml(subtitle) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(subtitle) }} /> : subtitle}</p>
+            <h3 className="newsletter-title" style={Object.keys(titleStyle).length > 1 ? titleStyle : undefined}>
+              {isHtml(title) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(title) }} /> : title}
+            </h3>
+            <p className="newsletter-subtitle" style={Object.keys(subtitleStyle).length ? subtitleStyle : undefined}>
+              {isHtml(subtitle) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(subtitle) }} /> : subtitle}
+            </p>
             <form className="newsletter-form" onSubmit={(e) => e.preventDefault()}>
               <input type="email" placeholder="Enter your email" className="newsletter-input" aria-label="Email" />
               <button type="submit" className="button-link newsletter-btn" style={Object.keys(btnStyle).length ? btnStyle : undefined}>{isHtml(buttonText) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(buttonText) }} /> : buttonText}</button>

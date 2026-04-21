@@ -22,6 +22,28 @@ function toHandle(item) {
     const raw = item.title ?? "product";
     return raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
+function asNonEmptyString(value) {
+    if (typeof value !== "string")
+        return undefined;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+}
+function pickVariantId(item) {
+    const direct = asNonEmptyString(item.variant_id) ?? asNonEmptyString(item.variantId);
+    if (direct)
+        return direct;
+    if (!Array.isArray(item.variants))
+        return undefined;
+    for (const row of item.variants) {
+        if (!row || typeof row !== "object")
+            continue;
+        const entry = row;
+        const id = asNonEmptyString(entry.variant_id) ?? asNonEmptyString(entry.variantId) ?? asNonEmptyString(entry.id);
+        if (id)
+            return id;
+    }
+    return undefined;
+}
 function toProduct(item) {
     const images = Array.isArray(item.images)
         ? item.images.filter((v) => typeof v === "string")
@@ -35,6 +57,7 @@ function toProduct(item) {
         image: primary,
         images: images.length ? images : primary ? [primary] : undefined,
         handle: toHandle(item),
+        variant_id: pickVariantId(item),
     };
 }
 function emptyPagination(page, limit) {

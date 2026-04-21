@@ -2212,7 +2212,6 @@
 
 .builder-preview-header .builder-preview-header-nav {
   display: flex;
-  margin-left: auto;
 }
 
 .builder-preview-nav-toggle {
@@ -2569,6 +2568,24 @@
 
 .header-nav-pages-item input {
   cursor: pointer;
+}
+
+.header-nav-align {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.header-nav-align-select {
+  width: 100%;
+  max-width: 16rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
 }
 
 .canvas {

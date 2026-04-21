@@ -12,6 +12,7 @@ import {
   loadSession,
   refreshSession,
 } from "@/lib";
+import { applyStoreToDocument } from "@/lib/applyStoreToDocument";
 import { SiteHeader, SiteFooter } from "@/components/layout";
 import { CartPage } from "@/components/cart/CartPage";
 import { CheckoutPage } from "@/components/checkout/CheckoutPage";
@@ -239,26 +240,8 @@ export default function App() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Apply theme, accent, and button style to document
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute("data-theme", store.theme || "dark");
-    if (store.accentColor)
-      root.style.setProperty("--accent", store.accentColor);
-    else root.style.removeProperty("--accent");
-    const bs = store.buttonStyle;
-    if (bs?.backgroundColor)
-      root.style.setProperty("--button-bg", bs.backgroundColor);
-    else root.style.removeProperty("--button-bg");
-    if (bs?.color) root.style.setProperty("--button-color", bs.color);
-    else root.style.removeProperty("--button-color");
-    if (bs?.fontFamily) root.style.setProperty("--button-font", bs.fontFamily);
-    else root.style.removeProperty("--button-font");
-    if (bs?.borderRadius)
-      root.style.setProperty("--button-radius", bs.borderRadius);
-    else root.style.removeProperty("--button-radius");
-    if (bs?.padding) root.style.setProperty("--button-padding", bs.padding);
-    else root.style.removeProperty("--button-padding");
+    applyStoreToDocument(store);
   }, [store.theme, store.accentColor, store.buttonStyle]);
 
   const { pages, siteTitle, homeSlug, useDemoData } = store;

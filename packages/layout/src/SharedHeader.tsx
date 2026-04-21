@@ -87,6 +87,12 @@ export function SharedHeader({
     ...(!logoWidthPx && !logoHeightPx ? { maxHeight: 32, width: "auto" } : {}),
   };
 
+  const navAlign = headerStyle?.navAlign ?? "right";
+  const baseRowClass = cls.row || "flex items-center w-full";
+  const rowClassName = [baseRowClass, "site-header-row", `site-header-row--nav-${navAlign}`]
+    .filter(Boolean)
+    .join(" ");
+
   const logoImage = logoUrl ? (
     <img
       src={logoUrl}
@@ -151,7 +157,7 @@ export function SharedHeader({
       style={Object.keys(headerCss).length ? headerCss : undefined}
     >
       <div className={cls.inner}>
-        <div className={cls.row || "flex items-center w-full justify-between"}>
+        <div className={rowClassName}>
           {isMobile && (
             <button
               type="button"

@@ -189,11 +189,11 @@ export function ProductListingPage({
                 <div className="product-price">${product.price.toFixed(2)}</div>
                 {(useDemoData ? product.handle : product.id) && (
                   <a
-                    href={`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}`}
+                    href={`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}${product.variant_id ? `?variant_id=${encodeURIComponent(product.variant_id)}` : ""}`}
                     className="product-link"
                     onClick={(e) => {
                       e.preventDefault();
-                      onNavigate(`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}`);
+                      onNavigate(`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}${product.variant_id ? `?variant_id=${encodeURIComponent(product.variant_id)}` : ""}`);
                     }}
                   >
                     View Product

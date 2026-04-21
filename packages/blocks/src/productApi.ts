@@ -15,6 +15,7 @@ export interface NormalizedProduct {
   image?: string;
   images?: string[];
   handle: string;
+  variant_id?: string;
 }
 
 type ProductApiItem = {
@@ -25,6 +26,9 @@ type ProductApiItem = {
   images?: unknown[];
   default_price_cents?: number;
   seo?: { handle?: string };
+  variant_id?: string;
+  variantId?: string;
+  variants?: unknown[];
 };
 
 type ProductApiResponse = {
@@ -82,6 +86,25 @@ function toHandle(item: ProductApiItem): string {
   return raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function pickVariantId(item: ProductApiItem): string | undefined {
+  const direct = asNonEmptyString(item.variant_id) ?? asNonEmptyString(item.variantId);
+  if (direct) return direct;
+  if (!Array.isArray(item.variants)) return undefined;
+  for (const row of item.variants) {
+    if (!row || typeof row !== "object") continue;
+    const entry = row as Record<string, unknown>;
+    const id = asNonEmptyString(entry.variant_id) ?? asNonEmptyString(entry.variantId) ?? asNonEmptyString(entry.id);
+    if (id) return id;
+  }
+  return undefined;
+}
+
 function toProduct(item: ProductApiItem): NormalizedProduct {
   const images = Array.isArray(item.images)
     ? item.images.filter((v): v is string => typeof v === "string")
@@ -91,10 +114,11 @@ function toProduct(item: ProductApiItem): NormalizedProduct {
     id: item.id ?? toHandle(item),
     title: item.title?.trim() || "Untitled product",
     description: item.description_html ? stripHtml(item.description_html) : undefined,
-    price: typeof item.default_price_cents === "number" ? item.default_price_cents / 100 : 0,
+    price: typeof item.default_price_cents === "number" ? item.default_price_cents  : 0,
     image: primary,
     images: images.length ? images : primary ? [primary] : undefined,
     handle: toHandle(item),
+    variant_id: pickVariantId(item),
   };
 }
 

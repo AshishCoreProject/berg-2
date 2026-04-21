@@ -194,6 +194,24 @@ export function BuilderHeaderPreview({
               })}
             </div>
           )}
+          <div className="header-nav-align">
+            <span className="header-nav-pages-label">Nav link alignment</span>
+            <select
+              className="header-nav-align-select"
+              value={headerStyle.navAlign ?? 'right'}
+              onChange={(e) =>
+                onHeaderStyleChange({
+                  ...headerStyle,
+                  navAlign: e.target.value as 'left' | 'center' | 'right',
+                })
+              }
+              aria-label="Desktop navigation link alignment"
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
         </div>
       )}
     </div>

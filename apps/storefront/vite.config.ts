@@ -7,6 +7,7 @@ export default defineConfig({
   cacheDir: path.resolve(__dirname, '../../node_modules/.vite/storefront'),
   plugins: [react(), tailwindcss()],
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@berg/schema': path.resolve(__dirname, '../../packages/schema/src/index.ts'),

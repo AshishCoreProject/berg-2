@@ -30,6 +30,8 @@ export interface StyleOverrides {
     accountIconColor?: string;
     /** Custom account icon image URL or data URL. */
     accountIconUrl?: string;
+    /** Header only: desktop nav link alignment (left | center | right). */
+    navAlign?: 'left' | 'center' | 'right';
 }
 /** Full store data: pages + site settings. Persisted to localStorage or API. */
 export interface StoreData extends PagesStore {

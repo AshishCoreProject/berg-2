@@ -138,11 +138,21 @@
   border-radius: var(--radius-md);
 }
 
+/* Hero canvas: contenteditable must inherit title/subtitle/CTA colors from parent (beats .text-editor-content { color: var(--text) }). */
+.block-content .block-hero-preview .text-editor-bare .text-editor-content {
+  color: inherit;
+}
+
+/* Newsletter: same — storefront App.css .newsletter-subtitle { color: var(--muted) } is loaded in builder; inline subtitle color + inherit fixes preview. */
+.block-content .block-newsletter .text-editor-bare .text-editor-content {
+  color: inherit;
+}
+
 .block-content .block-hero-preview .hero-inner {
   max-width: 720px;
   margin: 0 auto;
   text-align: center;
-  color: #0f172a;
+  color: #000000;
 }
 
 .block-content .block-hero-preview .hero-title {
@@ -155,16 +165,21 @@
 .block-content .block-hero-preview .hero-subtitle {
   margin: 0 0 16px;
   font-size: 1.125rem;
-  color: #475569;
+  color: inherit;
 }
 
-/* Force dark text in edit mode so light bg stays readable (overrides inline title/subtitle colors) */
+/* Force readable text in edit mode when selected (overrides inline title/subtitle colors) */
 .block-wrap.selected .block-hero-preview .hero-inner,
 .block-wrap.selected .block-hero-preview .hero-title {
-  color: #0f172a !important;
+  color: #000000 !important;
 }
 .block-wrap.selected .block-hero-preview .hero-subtitle {
-  color: #475569 !important;
+  color: #000000 !important;
+}
+
+/* Hero CTA: black label like storefront / design reference (not global accent-foreground). */
+.block-content .block-hero-preview .hero-cta .button-link {
+  color: var(--button-color, #000000);
 }
 
 .block-content .hero-cta {
