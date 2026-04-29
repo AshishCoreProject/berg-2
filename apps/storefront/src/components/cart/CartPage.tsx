@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCart, useCheckout } from '@storefront-ui-plugin/cart-checkout-plugin';
 import { getDemoProductById } from '@berg/blocks';
+import { loadSession } from '@/lib';
 
 interface Props {
   onNavigate: (path: string) => void;
@@ -50,6 +51,7 @@ export function CartPage({
   onApiFailure,
   onRetryApi,
 }: Props) {
+  const CHECKOUT_RETURN_PATH_STORAGE_KEY = 'storefront:checkout:return-path';
   const { items, summary, removeItem, updateQuantity, clearCart, isSyncing, lastError } = useCart();
   const { isPending, error: checkoutError } = useCheckout();
   const hasTriggeredFallbackRef = useRef(false);
@@ -74,7 +76,17 @@ export function CartPage({
   }, [cartApiEnabled, lastError, checkoutError, onApiFailure]);
 
   const handleCheckout = async () => {
-    // Checkout is now handled on the internal /checkout page (collect details, then redirect to hosted payment).
+    const userId = loadSession()?.customerId?.trim();
+    if (!userId) {
+      try {
+        window.sessionStorage.setItem(CHECKOUT_RETURN_PATH_STORAGE_KEY, '/checkout');
+      } catch {
+        // ignore storage failures
+      }
+      onNavigate('/login');
+      return;
+    }
+    // Checkout is handled on the internal /checkout page (collect details, then redirect to hosted payment).
     onNavigate('/checkout');
   };
 

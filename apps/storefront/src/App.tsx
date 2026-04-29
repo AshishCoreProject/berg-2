@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CartProvider } from "@storefront-ui-plugin/cart-checkout-plugin";
+import { CartProvider, useCart } from "@storefront-ui-plugin/cart-checkout-plugin";
 import type { PageDocument, StoredPage } from "@berg/schema";
 import type { AuthFormDefaults } from "@berg/core";
 import {
@@ -145,6 +145,7 @@ function StorefrontCartProvider({
   tenantId,
   apiBaseUrl,
   storeId,
+  getHeaders,
   children,
 }: {
   tenantId: string;
@@ -152,13 +153,102 @@ function StorefrontCartProvider({
   apiBaseUrl?: string;
   /** Required for API query params; defaults from store when unset. */
   storeId?: string;
+  /** Optional auth headers for user cart operations. */
+  getHeaders?: () => Record<string, string>;
   children: ReactNode;
 }) {
   return (
-    <CartProvider tenantId={tenantId} apiBaseUrl={apiBaseUrl} storeId={storeId}>
+    <CartProvider
+      tenantId={tenantId}
+      apiBaseUrl={apiBaseUrl}
+      storeId={storeId}
+      getHeaders={getHeaders}
+    >
       {children}
     </CartProvider>
   );
+}
+
+const CHECKOUT_RETURN_PATH_STORAGE_KEY = "storefront:checkout:return-path";
+
+function buildCartAuthHeaders(): Record<string, string> {
+  const session = loadSession();
+  const userId = session?.customerId?.trim();
+  if (!userId) return {};
+  const headers: Record<string, string> = {
+    "X-User-Id": userId,
+  };
+  const token = session?.token?.trim();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function CheckoutAuthRedirect({
+  onNavigate,
+  to = "/checkout",
+}: {
+  onNavigate: (path: string) => void;
+  to?: string;
+}) {
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(CHECKOUT_RETURN_PATH_STORAGE_KEY, to);
+    } catch {
+      // ignore storage failures
+    }
+    onNavigate("/login");
+  }, [onNavigate, to]);
+
+  return (
+    <main className="storefront storefront-empty" role="main">
+      <p>Please sign in to continue checkout.</p>
+    </main>
+  );
+}
+
+function CartAuthSync({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { mergeGuestCart } = useCart();
+  const isMergingRef = useRef(false);
+
+  useEffect(() => {
+    const mergeAndRedirect = async () => {
+      const session = loadSession();
+      const userId = session?.customerId?.trim();
+      if (!userId || isMergingRef.current) return;
+      isMergingRef.current = true;
+      try {
+        await mergeGuestCart();
+        const target = window.sessionStorage.getItem(
+          CHECKOUT_RETURN_PATH_STORAGE_KEY,
+        );
+        if (target) {
+          window.sessionStorage.removeItem(CHECKOUT_RETURN_PATH_STORAGE_KEY);
+          onNavigate(target);
+        }
+      } finally {
+        isMergingRef.current = false;
+      }
+    };
+
+    void mergeAndRedirect();
+    const onSessionChanged = () => {
+      void mergeAndRedirect();
+    };
+    window.addEventListener(
+      "customer-auth-session-changed",
+      onSessionChanged as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "customer-auth-session-changed",
+        onSessionChanged as EventListener,
+      );
+    };
+  }, [mergeGuestCart, onNavigate]);
+
+  return null;
 }
 
 export default function App() {
@@ -307,6 +397,12 @@ export default function App() {
     window.history.pushState(null, "", path);
     setRoute(getPathRoute());
   };
+  const cartAuthHeaders = buildCartAuthHeaders;
+  const isCustomerLoggedIn = Boolean(loadSession()?.customerId?.trim());
+  const [authSessionNonce, setAuthSessionNonce] = useState(0);
+  const [authSessionCustomerId, setAuthSessionCustomerId] = useState(
+    () => loadSession()?.customerId?.trim() || "guest",
+  );
 
   const viteAuthBase =
     (
@@ -386,13 +482,38 @@ export default function App() {
     };
   }, [resolvedAuthApiBase, store.storeId]);
 
+  useEffect(() => {
+    const onSessionChanged = () => {
+      setAuthSessionCustomerId(loadSession()?.customerId?.trim() || "guest");
+      setAuthSessionNonce((prev) => prev + 1);
+    };
+    window.addEventListener(
+      "customer-auth-session-changed",
+      onSessionChanged as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "customer-auth-session-changed",
+        onSessionChanged as EventListener,
+      );
+    };
+  }, []);
+
+  const cartProviderKey = `${cartTenantId}:${cartStoreId || "default"}:${authSessionCustomerId}:${authSessionNonce}`;
+
   if (system === "checkout") {
+    if (!isCustomerLoggedIn) {
+      return <CheckoutAuthRedirect onNavigate={navigate} to="/checkout" />;
+    }
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -425,10 +546,13 @@ export default function App() {
   if (system === "checkoutSuccess") {
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -457,10 +581,13 @@ export default function App() {
   if (system === "cart") {
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -496,10 +623,13 @@ export default function App() {
   if (productCatalog) {
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -534,10 +664,13 @@ export default function App() {
   if (collectionHandle) {
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -571,10 +704,13 @@ export default function App() {
   if (productHandle) {
     return (
       <StorefrontCartProvider
+        key={cartProviderKey}
         tenantId={cartTenantId}
         apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
         storeId={cartStoreId}
+        getHeaders={cartAuthHeaders}
       >
+        <CartAuthSync onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -609,10 +745,13 @@ export default function App() {
 
   return (
     <StorefrontCartProvider
+      key={cartProviderKey}
       tenantId={cartTenantId}
       apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
       storeId={cartStoreId}
+      getHeaders={cartAuthHeaders}
     >
+      <CartAuthSync onNavigate={navigate} />
       <div className="site-wrap">
         <SiteHeader
           siteTitle={siteName}

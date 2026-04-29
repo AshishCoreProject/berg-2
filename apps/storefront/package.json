@@ -14,7 +14,7 @@
     "@berg/core": "*",
     "@berg/layout": "*",
     "@berg/schema": "*",
-    "@storefront-ui-plugin/cart-checkout-plugin": "^3.1.0",
+    "@storefront-ui-plugin/cart-checkout-plugin": "file:../../../cart-checkout-plugin",
     "@tailwindcss/vite": "^4.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

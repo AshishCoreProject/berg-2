@@ -16,6 +16,23 @@ export interface NormalizedProduct {
   images?: string[];
   handle: string;
   variant_id?: string;
+  variants?: NormalizedProductVariant[];
+  options?: NormalizedProductOption[];
+}
+
+export interface NormalizedProductVariant {
+  id: string;
+  title?: string;
+  price?: number;
+  image?: string;
+  stock?: number;
+  option_values?: Record<string, string>;
+}
+
+export interface NormalizedProductOption {
+  position: number;
+  name: string;
+  values: string[];
 }
 
 type ProductApiItem = {
@@ -29,6 +46,7 @@ type ProductApiItem = {
   variant_id?: string;
   variantId?: string;
   variants?: unknown[];
+  options?: unknown[];
 };
 
 type ProductApiResponse = {
@@ -105,20 +123,123 @@ function pickVariantId(item: ProductApiItem): string | undefined {
   return undefined;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function toOptionsMap(value: unknown): Record<string, string> | undefined {
+  const objectValue = asRecord(value);
+  if (objectValue) {
+    const entries = Object.entries(objectValue)
+      .map(([name, raw]) => [name.trim(), asNonEmptyString(raw)] as const)
+      .filter(([name, v]) => Boolean(name) && Boolean(v))
+      .map(([name, v]) => [name, v as string] as const);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  }
+
+  if (!Array.isArray(value)) return undefined;
+  const entries: Array<[string, string]> = [];
+  for (const raw of value) {
+    const row = asRecord(raw);
+    if (!row) continue;
+    const name =
+      asNonEmptyString(row.name) ??
+      asNonEmptyString(row.option_name) ??
+      asNonEmptyString(row.option);
+    const selected =
+      asNonEmptyString(row.value) ??
+      asNonEmptyString(row.option_value) ??
+      asNonEmptyString(row.selected);
+    if (!name || !selected) continue;
+    entries.push([name, selected]);
+  }
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+function toProductOptions(value: unknown): NormalizedProductOption[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const rows: NormalizedProductOption[] = [];
+  value.forEach((raw, idx) => {
+    const row = asRecord(raw);
+    if (!row) return;
+    const name = asNonEmptyString(row.name);
+    if (!name) return;
+    const position =
+      typeof row.position === "number" ? row.position : idx + 1;
+    const values = Array.isArray(row.values)
+      ? row.values.map((v) => asNonEmptyString(v)).filter((v): v is string => Boolean(v))
+      : [];
+    rows.push({ position, name, values });
+  });
+  return rows.length ? rows.sort((a, b) => a.position - b.position) : undefined;
+}
+
+function toVariant(row: unknown, options?: NormalizedProductOption[]): NormalizedProductVariant | undefined {
+  const entry = asRecord(row);
+  if (!entry) return undefined;
+  const id =
+    asNonEmptyString(entry.variant_id) ??
+    asNonEmptyString(entry.variantId) ??
+    asNonEmptyString(entry.id);
+  if (!id) return undefined;
+  const priceCents =
+    typeof entry.price_cents === "number"
+      ? entry.price_cents
+      : typeof entry.default_price_cents === "number"
+        ? entry.default_price_cents
+        : undefined;
+  const arrayOptionValues = Array.isArray(entry.option_values)
+    ? entry.option_values.map((v) => asNonEmptyString(v))
+    : undefined;
+  const option_values_from_array =
+    arrayOptionValues && options?.length
+      ? Object.fromEntries(
+          options
+            .map((option, idx) => [option.name, arrayOptionValues[idx]] as const)
+            .filter(([name, v]) => Boolean(name) && Boolean(v))
+            .map(([name, v]) => [name, v as string] as const),
+        )
+      : undefined;
+  const option_values =
+    option_values_from_array ??
+    toOptionsMap(entry.option_values) ??
+    toOptionsMap(entry.options) ??
+    toOptionsMap(entry.optionValues);
+  return {
+    id,
+    title: asNonEmptyString(entry.title),
+    price: typeof priceCents === "number" ? priceCents / 100 : undefined,
+    image:
+      asNonEmptyString(entry.primary_image) ??
+      asNonEmptyString(entry.image) ??
+      asNonEmptyString(entry.image_url),
+    stock: typeof entry.stock === "number" ? entry.stock : undefined,
+    option_values,
+  };
+}
+
 function toProduct(item: ProductApiItem): NormalizedProduct {
   const images = Array.isArray(item.images)
     ? item.images.filter((v): v is string => typeof v === "string")
     : [];
   const primary = item.primary_image || images[0];
+  const options = toProductOptions(item.options);
+  const variants = Array.isArray(item.variants)
+    ? item.variants.map((row) => toVariant(row, options)).filter((row): row is NormalizedProductVariant => Boolean(row))
+    : undefined;
   return {
     id: item.id ?? toHandle(item),
     title: item.title?.trim() || "Untitled product",
     description: item.description_html ? stripHtml(item.description_html) : undefined,
-    price: typeof item.default_price_cents === "number" ? item.default_price_cents  : 0,
+    price: typeof item.default_price_cents === "number" ? item.default_price_cents / 100 : 0,
     image: primary,
     images: images.length ? images : primary ? [primary] : undefined,
     handle: toHandle(item),
     variant_id: pickVariantId(item),
+    variants: variants?.length ? variants : undefined,
+    options,
   };
 }
 

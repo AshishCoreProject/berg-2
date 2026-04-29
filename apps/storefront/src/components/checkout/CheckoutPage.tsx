@@ -157,8 +157,15 @@ export function CheckoutPage({ onNavigate, tenantId, storeId }: Props) {
     // New key per submit click to avoid accidental duplicate order creation.
     const idempotencyKey = uuidv4();
 
+    const checkoutRes = await startCheckout(body);
+    const url = checkoutRes?.checkout_url;
+    const cartId = checkoutRes?.cart_id;
+    if (!cartId || typeof cartId !== 'string') {
+      setSubmitError('Unable to start checkout (missing cart_id). Please try again.');
+      return;
+    }
+
     setIsCreatingOrder(true);
-    let orderId = '';
     try {
       const orderRes = await fetch(`${orderApiBaseUrl.replace(/\/$/, '')}/orders`, {
         method: 'POST',
@@ -170,9 +177,7 @@ export function CheckoutPage({ onNavigate, tenantId, storeId }: Props) {
           ...(storeId ? { 'X-Store-Id': storeId } : {}),
         },
         body: JSON.stringify({
-          currency: 'USD',
-          customer_id: form.email.trim(),
-          notes: `Checkout shipping method: ${form.shippingMethod}`,
+          checkout_id: cartId,
         }),
       });
 
@@ -180,21 +185,14 @@ export function CheckoutPage({ onNavigate, tenantId, storeId }: Props) {
         const text = await orderRes.text();
         throw new Error(text || `Order API failed (${orderRes.status})`);
       }
-      const orderJson = (await orderRes.json()) as { order_id?: string };
-      if (!orderJson.order_id || typeof orderJson.order_id !== 'string') {
-        throw new Error('Order API did not return order_id.');
-      }
-      orderId = orderJson.order_id;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create order.';
       setSubmitError(message);
       setIsCreatingOrder(false);
       return;
     }
-
     setIsCreatingOrder(false);
-    const res = await startCheckout({ ...body, order_id: orderId });
-    const url = res?.checkout_url;
+
     if (typeof url === 'string' && url.length > 0) {
       window.location.href = url;
       return;
