@@ -7,6 +7,9 @@ interface Props {
     useDemoData?: boolean;
     tenantId?: string;
     storeId?: string;
+    /** Align guest cart localStorage key with CartProvider (storefront). */
+    cartGuestStorageTenantId?: string;
+    cartGuestStorageStoreId?: string;
     authApiBaseUrl?: string;
     authFormDefaults?: AuthFormDefaults;
     onNavigate?: (path: string) => void;
@@ -22,7 +25,9 @@ interface Props {
      * its own overlay UI.
      */
     renderChildren?: boolean;
+    /** Storefront: require guest cart id in storage for login when the API cart has items. */
+    requireGuestCartIdForLogin?: boolean;
 }
-export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport, }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
+export declare function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, cartGuestStorageTenantId, cartGuestStorageStoreId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport, requireGuestCartIdForLogin, }: Props): string | number | boolean | import("react/jsx-runtime").JSX.Element | Iterable<import("react").ReactNode> | null | undefined;
 export {};
 //# sourceMappingURL=BlockRenderer.d.ts.map

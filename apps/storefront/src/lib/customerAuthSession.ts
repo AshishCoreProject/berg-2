@@ -70,16 +70,34 @@ function decodeJwtExp(token?: string): number | undefined {
   }
 }
 
+const TOKEN_STRING_KEYS = [
+  'token',
+  'accessToken',
+  'access_token',
+  'jwt',
+  'id_token',
+  'bearerToken',
+] as const;
+
 export function extractSessionData(data: unknown): Partial<CustomerAuthSession> {
   const top = asRecord(data);
   const inner = asRecord(top?.data);
   const customer = asRecord(inner?.customer) ?? asRecord(top?.customer);
-  const token = pickString(top, ['token', 'accessToken']) ?? pickString(inner, ['token', 'accessToken']);
+  const sessionRec = asRecord(top?.session) ?? asRecord(inner?.session);
+  const token =
+    pickString(top, [...TOKEN_STRING_KEYS]) ??
+    pickString(inner, [...TOKEN_STRING_KEYS]) ??
+    pickString(sessionRec, [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(top?.tokens), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(inner?.tokens), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(top?.auth), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(inner?.auth), [...TOKEN_STRING_KEYS]);
   const refreshToken =
-    pickString(top, ['refreshToken']) ??
-    pickString(inner, ['refreshToken']) ??
-    pickString(asRecord(top?.tokens), ['refreshToken']) ??
-    pickString(asRecord(inner?.tokens), ['refreshToken']);
+    pickString(top, ['refreshToken', 'refresh_token']) ??
+    pickString(inner, ['refreshToken', 'refresh_token']) ??
+    pickString(sessionRec, ['refreshToken', 'refresh_token']) ??
+    pickString(asRecord(top?.tokens), ['refreshToken', 'refresh_token']) ??
+    pickString(asRecord(inner?.tokens), ['refreshToken', 'refresh_token']);
   const accessExpiryRaw =
     pickNumber(top, ['accessTokenExpiresAt', 'accessExpiresAt', 'expiresAt', 'exp']) ??
     pickNumber(inner, ['accessTokenExpiresAt', 'accessExpiresAt', 'expiresAt', 'exp']) ??
@@ -95,9 +113,10 @@ export function extractSessionData(data: unknown): Partial<CustomerAuthSession> 
     token,
     refreshToken,
     customerId:
-      pickString(top, ['customerId', 'userId', 'id']) ??
-      pickString(inner, ['customerId', 'userId', 'id']) ??
-      pickString(customer, ['id', 'customerId']),
+      pickString(top, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickString(inner, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickString(sessionRec, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickString(customer, ['id', 'customerId', 'customer_id']),
     name:
       pickString(top, ['name', 'fullName']) ??
       pickString(inner, ['name', 'fullName']) ??
@@ -119,11 +138,29 @@ export function isAccessTokenValid(
   session: CustomerAuthSession | null,
   bufferSeconds = 60,
 ): boolean {
-  if (!session?.token) return false;
+  if (!session?.token?.trim()) return false;
   const expiresAt = session.accessTokenExpiresAt;
-  if (!expiresAt || !Number.isFinite(expiresAt)) return false;
+  // Opaque tokens or APIs without expiry: treat as valid until API returns 401.
+  if (!expiresAt || !Number.isFinite(expiresAt)) return true;
   const bufferMs = Math.max(0, bufferSeconds) * 1000;
   return expiresAt - bufferMs > Date.now();
+}
+
+/** True if persisted session should be treated as logged-in (checkout + header). */
+export function hasCustomerAuthSession(session: CustomerAuthSession | null): boolean {
+  if (!session) return false;
+  return Boolean(session.customerId?.trim() || session.token?.trim());
+}
+
+export function customerProfileFromSession(
+  session: CustomerAuthSession | null,
+): Pick<CustomerAuthSession, 'name' | 'username' | 'customerId'> | null {
+  if (!hasCustomerAuthSession(session)) return null;
+  return {
+    name: session?.name,
+    username: session?.username,
+    customerId: session?.customerId,
+  };
 }
 
 export function loadSession(): CustomerAuthSession | null {
@@ -140,9 +177,12 @@ export function loadSession(): CustomerAuthSession | null {
 
 export function saveSession(next: Partial<CustomerAuthSession>): CustomerAuthSession {
   const existing = loadSession() ?? {};
+  const patch = Object.fromEntries(
+    Object.entries(next as Record<string, unknown>).filter(([, v]) => v !== undefined),
+  ) as Partial<CustomerAuthSession>;
   const merged: CustomerAuthSession = {
     ...existing,
-    ...next,
+    ...patch,
     savedAt: Date.now(),
   };
   try {

@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccountHeaderIconButton, type HeaderFooterStyle } from '@berg/layout';
-import { clearSession, loadSession } from '@/lib';
+import {
+  clearSession,
+  customerProfileFromSession,
+  loadSession,
+} from '@/lib';
+
+/** Set on successful login in CustomerAuthBlock; cleared when the account modal is dismissed. */
+const ACCOUNT_MODAL_INTENT_KEY = 'berg:show-account-modal';
 
 interface CustomerProfile {
   name?: string;
@@ -14,6 +21,13 @@ interface Props {
   isAuthenticated?: boolean;
   customer?: CustomerProfile | null;
   onLogout?: () => void;
+}
+
+function hasPropCustomer(customer: CustomerProfile | null | undefined): boolean {
+  if (!customer) return false;
+  return Boolean(
+    customer.customerId?.trim() || customer.name?.trim() || customer.username?.trim(),
+  );
 }
 
 function buildInitials(name?: string, username?: string): string {
@@ -32,22 +46,32 @@ export function StorefrontAccountHeader({
   customer,
   onLogout,
 }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [storedCustomer, setStoredCustomer] = useState<CustomerProfile | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [storedCustomer, setStoredCustomer] = useState<CustomerProfile | null>(() =>
+    customerProfileFromSession(loadSession()),
+  );
+
+  const clearAccountModalIntent = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(ACCOUNT_MODAL_INTENT_KEY);
+    } catch {
+      /* private mode */
+    }
+  }, []);
+
+  /** Closing the modal clears the post-login intent so remounts / Strict Mode stay correct. */
+  const setAccountModalOpen = useCallback(
+    (next: boolean) => {
+      if (!next) clearAccountModalIntent();
+      setOpen(next);
+    },
+    [clearAccountModalIntent],
+  );
 
   useEffect(() => {
     const refreshFromStorage = () => {
-      const session = loadSession();
-      setStoredCustomer(
-        session
-          ? {
-              name: session.name,
-              username: session.username,
-              customerId: session.customerId,
-            }
-          : null,
-      );
+      setStoredCustomer(customerProfileFromSession(loadSession()));
     };
     refreshFromStorage();
     const onStorage = () => refreshFromStorage();
@@ -60,33 +84,93 @@ export function StorefrontAccountHeader({
     };
   }, []);
 
+  /** Open once after login: keep sessionStorage flag until the user closes the modal (survives header remount + React Strict Mode). */
+  useEffect(() => {
+    if (!storedCustomer) return;
+    try {
+      if (window.sessionStorage.getItem(ACCOUNT_MODAL_INTENT_KEY) === '1') {
+        setOpen(true);
+      }
+    } catch {
+      /* private mode */
+    }
+  }, [storedCustomer]);
+
   useEffect(() => {
     if (!open) return undefined;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') setAccountModalOpen(false);
     };
-    document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onEscape);
     return () => {
-      document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onEscape);
     };
-  }, [open]);
+  }, [open, setAccountModalOpen]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const target = e.target;
+      if (target instanceof Node && el.contains(target)) return;
+      setAccountModalOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [open, setAccountModalOpen]);
 
   const effectiveCustomer = customer ?? storedCustomer;
-  const effectiveAuthenticated = isAuthenticated || !!effectiveCustomer;
+  const effectiveAuthenticated =
+    isAuthenticated || !!storedCustomer || hasPropCustomer(customer);
   const displayName = effectiveCustomer?.name?.trim() || 'Customer';
   const displayUsername = effectiveCustomer?.username?.trim() || 'Not available';
   const displayCustomerId = effectiveCustomer?.customerId?.trim() || 'Not available';
   const initials = buildInitials(displayName, displayUsername);
 
+  const dropdown =
+    effectiveAuthenticated && open ? (
+      <div
+        className="account-modal-card"
+        role="dialog"
+        aria-modal="false"
+        aria-label="Account"
+      >
+        <div className="account-popover-head">
+          <span className="account-popover-avatar" aria-hidden>
+            {initials}
+          </span>
+          <span className="account-popover-identity">
+            <span className="account-popover-title">{displayName}</span>
+            <span className="account-popover-username">{displayUsername}</span>
+            <span className="account-popover-customer-id">Customer ID: {displayCustomerId}</span>
+          </span>
+        </div>
+        <div className="account-popover-divider" />
+        <button
+          type="button"
+          className="account-popover-logout"
+          onClick={() => {
+            setAccountModalOpen(false);
+            if (onLogout) onLogout();
+            else {
+              clearSession();
+              setStoredCustomer(null);
+              window.dispatchEvent(new Event('customer-auth-session-changed'));
+            }
+          }}
+        >
+          Logout
+        </button>
+      </div>
+    ) : null;
+
   return (
-    <div className="account-menu-wrap" ref={rootRef}>
+    <div ref={wrapRef} className="account-menu-wrap">
       <AccountHeaderIconButton
         headerStyle={headerStyle}
         onClick={() => {
@@ -94,39 +178,10 @@ export function StorefrontAccountHeader({
             onNavigate('/login');
             return;
           }
-          setOpen((prev) => !prev);
+          setAccountModalOpen(!open);
         }}
       />
-      {effectiveAuthenticated && open && (
-        <div className="account-popover" role="dialog" aria-label="Account menu">
-          <div className="account-popover-head">
-            <span className="account-popover-avatar" aria-hidden>
-              {initials}
-            </span>
-            <span className="account-popover-identity">
-              <span className="account-popover-title">{displayName}</span>
-              <span className="account-popover-username">{displayUsername}</span>
-              <span className="account-popover-customer-id">ID: {displayCustomerId}</span>
-            </span>
-          </div>
-          <div className="account-popover-divider" />
-          <button
-            type="button"
-            className="account-popover-logout"
-            onClick={() => {
-              setOpen(false);
-              if (onLogout) onLogout();
-              else {
-                clearSession();
-                setStoredCustomer(null);
-                window.dispatchEvent(new Event('customer-auth-session-changed'));
-              }
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }

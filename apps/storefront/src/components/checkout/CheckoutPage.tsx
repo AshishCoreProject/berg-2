@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useCart, useCheckout } from '@storefront-ui-plugin/cart-checkout-plugin';
+import { useCart, useCheckout } from '@ecommerce-store/cart-checkout-plugin';
 import { getDemoProductById } from '@berg/blocks';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -89,7 +89,6 @@ export function CheckoutPage({ onNavigate, tenantId, storeId }: Props) {
 
   useEffect(() => {
     if (!isSyncing && items.length === 0) {
-      // Keep it gentle: show the empty state rather than forcibly navigating.
       setSubmitError(null);
     }
   }, [isSyncing, items.length]);
@@ -157,8 +156,21 @@ export function CheckoutPage({ onNavigate, tenantId, storeId }: Props) {
     // New key per submit click to avoid accidental duplicate order creation.
     const idempotencyKey = uuidv4();
 
-    const checkoutRes = await startCheckout(body);
-    const url = checkoutRes?.checkout_url;
+    let checkoutRes: Awaited<ReturnType<typeof startCheckout>>;
+    try {
+      checkoutRes = await startCheckout(body);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Checkout failed.';
+      setSubmitError(message);
+      return;
+    }
+
+    const url =
+      typeof checkoutRes.checkout_url === 'string' && checkoutRes.checkout_url.length > 0
+        ? checkoutRes.checkout_url
+        : typeof checkoutRes.redirect_url === 'string' && checkoutRes.redirect_url.length > 0
+          ? checkoutRes.redirect_url
+          : undefined;
     const cartId = checkoutRes?.cart_id;
     if (!cartId || typeof cartId !== 'string') {
       setSubmitError('Unable to start checkout (missing cart_id). Please try again.');

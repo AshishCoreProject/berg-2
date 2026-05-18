@@ -5,16 +5,132 @@ function trimBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
+const TOKEN_STRING_KEYS = [
+  'token',
+  'accessToken',
+  'access_token',
+  'jwt',
+  'id_token',
+  'bearerToken',
+] as const;
+
+/** Some gateways return JSON as a string; unwrap a few times (no logging of content). */
+function normalizeJsonPayload(data: unknown, maxWraps = 5): unknown {
+  let cur: unknown = data;
+  for (let i = 0; i < maxWraps && typeof cur === 'string'; i++) {
+    const t = cur.trim();
+    if (!t.startsWith('{') && !t.startsWith('[')) break;
+    try {
+      cur = JSON.parse(t) as unknown;
+    } catch {
+      break;
+    }
+  }
+  return cur;
+}
+
+function looksLikeJwt(s: string): boolean {
+  const t = s.trim();
+  const parts = t.split('.');
+  return parts.length === 3 && parts.every((p) => p.length >= 2);
+}
+
+/** Depth-first search for a JWT-shaped string (three dot-separated segments). */
+function findJwtLikeStringInTree(
+  node: unknown,
+  depth: number,
+  seen: WeakSet<object>,
+): string | undefined {
+  if (depth < 0 || node == null) return undefined;
+  if (typeof node === 'string') {
+    return looksLikeJwt(node) ? node.trim() : undefined;
+  }
+  if (typeof node !== 'object') return undefined;
+  if (seen.has(node as object)) return undefined;
+  seen.add(node as object);
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const hit = findJwtLikeStringInTree(item, depth - 1, seen);
+      if (hit) return hit;
+    }
+    return undefined;
+  }
+  for (const v of Object.values(node as Record<string, unknown>)) {
+    const hit = findJwtLikeStringInTree(v, depth - 1, seen);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** Opaque tokens: string under keys whose names suggest an access/token field. */
+function findTokenStringByLikelyKeys(
+  node: unknown,
+  depth: number,
+  seen: WeakSet<object>,
+): string | undefined {
+  if (depth < 0 || node == null) return undefined;
+  if (typeof node !== 'object') return undefined;
+  if (seen.has(node as object)) return undefined;
+  seen.add(node as object);
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const hit = findTokenStringByLikelyKeys(item, depth - 1, seen);
+      if (hit) return hit;
+    }
+    return undefined;
+  }
+  const rec = node as Record<string, unknown>;
+  for (const [k, v] of Object.entries(rec)) {
+    const kl = k.toLowerCase();
+    const likely =
+      kl.includes('access') ||
+      kl.includes('token') ||
+      kl === 'jwt' ||
+      kl === 'bearer' ||
+      kl.endsWith('_token');
+    if (likely && typeof v === 'string') {
+      const t = v.trim();
+      if (t.length >= 12) return t;
+    }
+    const nested = findTokenStringByLikelyKeys(v, depth - 1, seen);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function customerIdFromJwtAccessToken(jwt: string): string | undefined {
+  const parts = jwt.trim().split('.');
+  if (parts.length < 2) return undefined;
+  try {
+    const payload = JSON.parse(atob(parts[1])) as Record<string, unknown>;
+    for (const k of ['customerId', 'customer_id', 'sub', 'userId', 'id']) {
+      const v = payload[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+      if (typeof v === 'number' && Number.isFinite(v)) return String(Math.trunc(v));
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
 function extractToken(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const o = data as Record<string, unknown>;
-  if (typeof o.token === 'string') return o.token;
-  if (typeof o.accessToken === 'string') return o.accessToken;
-  const inner = o.data;
-  if (inner && typeof inner === 'object') {
-    const d = inner as Record<string, unknown>;
-    if (typeof d.token === 'string') return d.token;
-    if (typeof d.accessToken === 'string') return d.accessToken;
+  const layers: (Record<string, unknown> | null)[] = [
+    asRecord(o),
+    asRecord(o.data),
+    asRecord(o.result),
+    asRecord(o.auth),
+    asRecord(o.session),
+    asRecord(o.tokens),
+    asRecord(asRecord(o.data)?.tokens),
+    asRecord(asRecord(o.data)?.session),
+    asRecord(asRecord(o.data)?.customer),
+  ];
+  for (const rec of layers) {
+    const s = pickString(rec, [...TOKEN_STRING_KEYS]);
+    if (s) return s;
   }
   return undefined;
 }
@@ -34,6 +150,13 @@ async function parseErrorMessage(res: Response): Promise<string> {
 }
 
 const STORAGE_KEY = 'berg_customer_auth';
+
+/** Matches @ecommerce-store/cart-checkout-plugin guest cart localStorage key. */
+function getCartGuestStorageKey(tenantSegment: string, storeSegment: string): string {
+  const t = tenantSegment.trim() || 'default';
+  const s = storeSegment.trim() || 'default';
+  return `cart_guest_id:${t}:${s}`;
+}
 const SUBMIT_GRADIENT_PRESETS: Record<string, string> = {
   ocean: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
   sunset: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
@@ -63,6 +186,16 @@ function pickString(obj: Record<string, unknown> | null, keys: string[]): string
   return undefined;
 }
 
+function pickScalarId(obj: Record<string, unknown> | null, keys: string[]): string | undefined {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
+  }
+  return undefined;
+}
+
 function extractSessionFields(data: unknown): {
   token?: string;
   refreshToken?: string;
@@ -75,12 +208,21 @@ function extractSessionFields(data: unknown): {
   const top = asRecord(data);
   const inner = asRecord(top?.data);
   const customer = asRecord(inner?.customer) ?? asRecord(top?.customer);
-  const token = pickString(top, ['token', 'accessToken']) ?? pickString(inner, ['token', 'accessToken']);
+  const sessionRec = asRecord(top?.session) ?? asRecord(inner?.session);
+  const token =
+    pickString(top, [...TOKEN_STRING_KEYS]) ??
+    pickString(inner, [...TOKEN_STRING_KEYS]) ??
+    pickString(sessionRec, [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(top?.tokens), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(inner?.tokens), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(top?.auth), [...TOKEN_STRING_KEYS]) ??
+    pickString(asRecord(inner?.auth), [...TOKEN_STRING_KEYS]);
   const refreshToken =
-    pickString(top, ['refreshToken']) ??
-    pickString(inner, ['refreshToken']) ??
-    pickString(asRecord(top?.tokens), ['refreshToken']) ??
-    pickString(asRecord(inner?.tokens), ['refreshToken']);
+    pickString(top, ['refreshToken', 'refresh_token']) ??
+    pickString(inner, ['refreshToken', 'refresh_token']) ??
+    pickString(sessionRec, ['refreshToken', 'refresh_token']) ??
+    pickString(asRecord(top?.tokens), ['refreshToken', 'refresh_token']) ??
+    pickString(asRecord(inner?.tokens), ['refreshToken', 'refresh_token']);
   const pickNumber = (obj: Record<string, unknown> | null, keys: string[]): number | undefined => {
     if (!obj) return undefined;
     for (const key of keys) {
@@ -123,9 +265,10 @@ function extractSessionFields(data: unknown): {
     token,
     refreshToken,
     customerId:
-      pickString(top, ['customerId', 'userId', 'id']) ??
-      pickString(inner, ['customerId', 'userId', 'id']) ??
-      pickString(customer, ['id', 'customerId']),
+      pickScalarId(top, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickScalarId(inner, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickScalarId(sessionRec, ['customerId', 'customer_id', 'userId', 'id']) ??
+      pickScalarId(customer, ['id', 'customerId', 'customer_id']),
     name:
       pickString(top, ['name', 'fullName']) ??
       pickString(inner, ['name', 'fullName']) ??
@@ -147,9 +290,25 @@ export interface CustomerAuthBlockProps {
   attrs: Record<string, unknown>;
   authApiBaseUrl?: string;
   authFormDefaults?: AuthFormDefaults;
+  /** Store id sent in login/register JSON body. */
   storeId?: string;
+  /** Fallback tenant segment for guest cart key when cartGuestStorageTenantId is omitted. */
+  tenantId?: string;
+  /**
+   * Tenant segment for reading cart guest id from localStorage (should match CartProvider).
+   */
+  cartGuestStorageTenantId?: string;
+  /**
+   * Store segment for reading cart guest id from localStorage (should match CartProvider storeId).
+   */
+  cartGuestStorageStoreId?: string;
   onNavigate?: (path: string) => void;
   isBuilderPreview?: boolean;
+  /**
+   * When true (storefront with API cart + non-empty guest cart), login requires a guest id in
+   * localStorage; otherwise the form shows an error and does not call the auth API.
+   */
+  requireGuestCartIdForLogin?: boolean;
 }
 
 export function CustomerAuthBlock({
@@ -157,8 +316,12 @@ export function CustomerAuthBlock({
   authApiBaseUrl,
   authFormDefaults,
   storeId,
+  tenantId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
   onNavigate,
   isBuilderPreview,
+  requireGuestCartIdForLogin = false,
 }: CustomerAuthBlockProps) {
   const mode = attrs.mode === 'register' ? 'register' : 'login';
   const [email, setEmail] = useState('');
@@ -269,12 +432,42 @@ export function CustomerAuthBlock({
       return;
     }
 
+    let guestId: string | undefined;
+    if (typeof window !== 'undefined') {
+      const tenantSeg =
+        (cartGuestStorageTenantId ?? tenantId ?? '').trim() || 'default';
+      const storeSeg = (cartGuestStorageStoreId ?? sid).trim() || 'default';
+      const raw = window.localStorage.getItem(
+        getCartGuestStorageKey(tenantSeg, storeSeg),
+      );
+      const trimmed = raw?.trim();
+      if (trimmed) guestId = trimmed;
+    }
+
+    if (
+      mode === 'login' &&
+      requireGuestCartIdForLogin &&
+      !guestId
+    ) {
+      setError(
+        'Your cart session is out of sync. Refresh the page, or clear your cart, then try signing in again.',
+      );
+      return;
+    }
+
     setLoading(true);
     try {
+      const payload: Record<string, unknown> = {
+        storeId: sid,
+        email: email.trim(),
+        password,
+      };
+      if (guestId) payload.guestId = guestId;
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId: sid, email: email.trim(), password }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         setError(await parseErrorMessage(res));
@@ -286,16 +479,23 @@ export function CustomerAuthBlock({
       } catch {
         data = null;
       }
+      data = normalizeJsonPayload(data);
       const sessionFields = extractSessionFields(data);
-      const token = sessionFields.token ?? extractToken(data);
-      if (token) {
+      const token =
+        sessionFields.token ??
+        extractToken(data) ??
+        findJwtLikeStringInTree(data, 10, new WeakSet()) ??
+        findTokenStringByLikelyKeys(data, 10, new WeakSet());
+      const resolvedCustomerId =
+        sessionFields.customerId ?? (token ? customerIdFromJwtAccessToken(token) : undefined);
+      if (token && mode !== 'register') {
         try {
           localStorage.setItem(
             STORAGE_KEY,
             JSON.stringify({
               token,
               refreshToken: sessionFields.refreshToken,
-              customerId: sessionFields.customerId,
+              customerId: resolvedCustomerId,
               name: sessionFields.name,
               username: sessionFields.username,
               accessTokenExpiresAt: sessionFields.accessTokenExpiresAt,
@@ -304,6 +504,11 @@ export function CustomerAuthBlock({
               raw: data,
             }),
           );
+          try {
+            window.sessionStorage.setItem('berg:show-account-modal', '1');
+          } catch {
+            /* private mode */
+          }
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('customer-auth-session-changed'));
           }

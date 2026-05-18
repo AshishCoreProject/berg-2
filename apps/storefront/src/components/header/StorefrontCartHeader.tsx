@@ -1,4 +1,4 @@
-import { useCart } from '@storefront-ui-plugin/cart-checkout-plugin';
+import { useCart } from '@ecommerce-store/cart-checkout-plugin';
 import { CartHeaderIconButton, type HeaderFooterStyle } from '@berg/layout';
 
 interface Props {

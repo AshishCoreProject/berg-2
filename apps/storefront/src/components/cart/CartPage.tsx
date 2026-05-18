@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useCart, useCheckout } from '@storefront-ui-plugin/cart-checkout-plugin';
+import { useEffect } from 'react';
+import { useCart, useCheckout } from '@ecommerce-store/cart-checkout-plugin';
 import { getDemoProductById } from '@berg/blocks';
 import { loadSession } from '@/lib';
 
@@ -7,14 +7,6 @@ interface Props {
   onNavigate: (path: string) => void;
   /** True when API runtime has required config (url + tenant + store). */
   cartApiConfigured: boolean;
-  /** True while cart provider is currently in API mode. */
-  cartApiEnabled: boolean;
-  /** Optional reason shown when falling back to local mode. */
-  cartApiFallbackReason?: string | null;
-  /** Switch parent provider from API mode to local fallback mode. */
-  onApiFailure: (reason: string) => void;
-  /** Re-enable API mode after fallback. */
-  onRetryApi: () => void;
 }
 
 function resolveCartItemLabel(item: Record<string, unknown>): string {
@@ -43,39 +35,16 @@ function resolveText(value: unknown): string {
   return value.trim();
 }
 
-export function CartPage({
-  onNavigate,
-  cartApiConfigured,
-  cartApiEnabled,
-  cartApiFallbackReason,
-  onApiFailure,
-  onRetryApi,
-}: Props) {
+export function CartPage({ onNavigate, cartApiConfigured }: Props) {
   const CHECKOUT_RETURN_PATH_STORAGE_KEY = 'storefront:checkout:return-path';
   const { items, summary, removeItem, updateQuantity, clearCart, isSyncing, lastError } = useCart();
   const { isPending, error: checkoutError } = useCheckout();
-  const hasTriggeredFallbackRef = useRef(false);
 
   useEffect(() => {
     document.title = 'Cart';
   }, []);
 
-  useEffect(() => {
-    if (!cartApiEnabled) {
-      hasTriggeredFallbackRef.current = false;
-    }
-  }, [cartApiEnabled]);
-
-  useEffect(() => {
-    if (!cartApiEnabled) return;
-    if (hasTriggeredFallbackRef.current) return;
-    const reason = checkoutError?.message || lastError?.message;
-    if (!reason) return;
-    hasTriggeredFallbackRef.current = true;
-    onApiFailure(reason);
-  }, [cartApiEnabled, lastError, checkoutError, onApiFailure]);
-
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     const userId = loadSession()?.customerId?.trim();
     if (!userId) {
       try {
@@ -86,7 +55,6 @@ export function CartPage({
       onNavigate('/login');
       return;
     }
-    // Checkout is handled on the internal /checkout page (collect details, then redirect to hosted payment).
     onNavigate('/checkout');
   };
 
@@ -95,18 +63,9 @@ export function CartPage({
       <div className="storefront-cart-inner">
         <h1 className="storefront-cart-title">Cart</h1>
 
-        {cartApiConfigured && cartApiEnabled ? (
+        {cartApiConfigured ? (
           <div className="storefront-cart-status storefront-cart-status--api">
             Cart API mode is active.
-          </div>
-        ) : null}
-        {cartApiConfigured && !cartApiEnabled ? (
-          <div className="storefront-cart-status storefront-cart-status--fallback" role="status">
-            Cart API unavailable. Using local fallback.
-            {cartApiFallbackReason ? ` (${cartApiFallbackReason})` : ''}
-            <button type="button" className="storefront-cart-retry-btn" onClick={onRetryApi}>
-              Retry API
-            </button>
           </div>
         ) : null}
         {!cartApiConfigured ? (
@@ -115,12 +74,12 @@ export function CartPage({
           </div>
         ) : null}
 
-        {cartApiEnabled && lastError ? (
+        {cartApiConfigured && lastError ? (
           <p className="storefront-cart-api-error" role="alert">
             {lastError.message}
           </p>
         ) : null}
-        {cartApiEnabled && checkoutError ? (
+        {cartApiConfigured && checkoutError ? (
           <p className="storefront-cart-api-error" role="alert">
             {checkoutError.message}
           </p>
@@ -217,7 +176,7 @@ export function CartPage({
               <button type="button" className="storefront-cart-clear" disabled={isSyncing} onClick={() => clearCart()}>
                 Clear cart
               </button>
-              {cartApiEnabled ? (
+              {cartApiConfigured ? (
                 <button
                   type="button"
                   className="storefront-cart-checkout-btn"

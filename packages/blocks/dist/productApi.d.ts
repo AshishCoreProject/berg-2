@@ -15,6 +15,21 @@ export interface NormalizedProduct {
     images?: string[];
     handle: string;
     variant_id?: string;
+    variants?: NormalizedProductVariant[];
+    options?: NormalizedProductOption[];
+}
+export interface NormalizedProductVariant {
+    id: string;
+    title?: string;
+    price?: number;
+    image?: string;
+    stock?: number;
+    option_values?: Record<string, string>;
+}
+export interface NormalizedProductOption {
+    position: number;
+    name: string;
+    values: string[];
 }
 export interface ListProductsOptions {
     apiBaseUrl: string;

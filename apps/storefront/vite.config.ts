@@ -14,6 +14,9 @@ export default defineConfig({
       '@berg/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
       '@berg/layout': path.resolve(__dirname, '../../packages/layout/src/index.ts'),
       '@berg/blocks': path.resolve(__dirname, '../../packages/blocks/src/index.ts'),
+      // One React instance only: file-linked cart plugin can nest react@19 from its dev toolchain.
+      react: path.resolve(__dirname, '../../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
     },
   },
   server: { port: 5174 },

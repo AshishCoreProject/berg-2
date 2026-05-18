@@ -14,6 +14,9 @@ interface Props {
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  /** Align guest cart localStorage key with CartProvider (storefront). */
+  cartGuestStorageTenantId?: string;
+  cartGuestStorageStoreId?: string;
   authApiBaseUrl?: string;
   authFormDefaults?: AuthFormDefaults;
   onNavigate?: (path: string) => void;
@@ -29,6 +32,8 @@ interface Props {
    * its own overlay UI.
    */
   renderChildren?: boolean;
+  /** Storefront: require guest cart id in storage for login when the API cart has items. */
+  requireGuestCartIdForLogin?: boolean;
 }
 
 /**
@@ -58,11 +63,14 @@ function FormBlock({
   useDemoData,
   tenantId,
   storeId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
   authApiBaseUrl,
   authFormDefaults,
   onNavigate,
   isBuilderPreview,
   layoutViewport,
+  requireGuestCartIdForLogin,
 }: {
   title: string;
   submitButtonText: string;
@@ -72,11 +80,14 @@ function FormBlock({
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  cartGuestStorageTenantId?: string;
+  cartGuestStorageStoreId?: string;
   authApiBaseUrl?: string;
   authFormDefaults?: AuthFormDefaults;
   onNavigate?: (path: string) => void;
   isBuilderPreview?: boolean;
   layoutViewport?: StorefrontViewport;
+  requireGuestCartIdForLogin?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -100,11 +111,14 @@ function FormBlock({
             useDemoData={useDemoData}
             tenantId={tenantId}
             storeId={storeId}
+            cartGuestStorageTenantId={cartGuestStorageTenantId}
+            cartGuestStorageStoreId={cartGuestStorageStoreId}
             authApiBaseUrl={authApiBaseUrl}
             authFormDefaults={authFormDefaults}
             onNavigate={onNavigate}
             isBuilderPreview={isBuilderPreview}
             layoutViewport={layoutViewport}
+            requireGuestCartIdForLogin={requireGuestCartIdForLogin}
           />
         ))}
         <div className="block-form-actions">
@@ -136,12 +150,15 @@ export function BlockRenderer({
   useDemoData,
   tenantId,
   storeId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
   authApiBaseUrl,
   authFormDefaults,
   onNavigate,
   isBuilderPreview,
   renderChildren,
   layoutViewport = 'desktop',
+  requireGuestCartIdForLogin,
 }: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
@@ -314,11 +331,14 @@ export function BlockRenderer({
                     useDemoData={useDemoData}
                     tenantId={tenantId}
                     storeId={storeId}
+                    cartGuestStorageTenantId={cartGuestStorageTenantId}
+                    cartGuestStorageStoreId={cartGuestStorageStoreId}
                     authApiBaseUrl={authApiBaseUrl}
                     authFormDefaults={authFormDefaults}
                     onNavigate={onNavigate}
                     isBuilderPreview={isBuilderPreview}
                     layoutViewport={layoutViewport}
+                    requireGuestCartIdForLogin={requireGuestCartIdForLogin}
                   />
                 </div>
               ))}
@@ -631,11 +651,14 @@ export function BlockRenderer({
             useDemoData={useDemoData}
             tenantId={tenantId}
             storeId={storeId}
+            cartGuestStorageTenantId={cartGuestStorageTenantId}
+            cartGuestStorageStoreId={cartGuestStorageStoreId}
             authApiBaseUrl={authApiBaseUrl}
             authFormDefaults={authFormDefaults}
             onNavigate={onNavigate}
             isBuilderPreview={isBuilderPreview}
             layoutViewport={layoutViewport}
+            requireGuestCartIdForLogin={requireGuestCartIdForLogin}
           />
         );
       } else {
@@ -777,8 +800,12 @@ export function BlockRenderer({
           authApiBaseUrl={authApiBaseUrl}
           authFormDefaults={authFormDefaults}
           storeId={storeId}
+          tenantId={tenantId}
+          cartGuestStorageTenantId={cartGuestStorageTenantId}
+          cartGuestStorageStoreId={cartGuestStorageStoreId}
           onNavigate={onNavigate}
           isBuilderPreview={isBuilderPreview}
+          requireGuestCartIdForLogin={requireGuestCartIdForLogin}
         />
       );
       break;
@@ -823,12 +850,15 @@ export function BlockRenderer({
                 useDemoData={useDemoData}
                 tenantId={tenantId}
                 storeId={storeId}
+                cartGuestStorageTenantId={cartGuestStorageTenantId}
+                cartGuestStorageStoreId={cartGuestStorageStoreId}
                 authApiBaseUrl={authApiBaseUrl}
                 authFormDefaults={authFormDefaults}
                 onNavigate={onNavigate}
                 isBuilderPreview={isBuilderPreview}
                 renderChildren={renderChildren}
                 layoutViewport={layoutViewport}
+                requireGuestCartIdForLogin={requireGuestCartIdForLogin}
               />
             </div>
           );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CartProvider, useCart } from "@storefront-ui-plugin/cart-checkout-plugin";
+import { CartProvider, useCart } from "@ecommerce-store/cart-checkout-plugin";
 import type { PageDocument, StoredPage } from "@berg/schema";
 import type { AuthFormDefaults } from "@berg/core";
 import {
@@ -208,45 +208,37 @@ function CheckoutAuthRedirect({
   );
 }
 
-function CartAuthSync({ onNavigate }: { onNavigate: (path: string) => void }) {
-  const { mergeGuestCart } = useCart();
-  const isMergingRef = useRef(false);
-
+/** After login, return to checkout (or other path) if user was redirected to sign in first. */
+function PostLoginCheckoutRedirect({
+  onNavigate,
+}: {
+  onNavigate: (path: string) => void;
+}) {
   useEffect(() => {
-    const mergeAndRedirect = async () => {
+    const redirectIfNeeded = () => {
       const session = loadSession();
-      const userId = session?.customerId?.trim();
-      if (!userId || isMergingRef.current) return;
-      isMergingRef.current = true;
-      try {
-        await mergeGuestCart();
-        const target = window.sessionStorage.getItem(
-          CHECKOUT_RETURN_PATH_STORAGE_KEY,
-        );
-        if (target) {
-          window.sessionStorage.removeItem(CHECKOUT_RETURN_PATH_STORAGE_KEY);
-          onNavigate(target);
-        }
-      } finally {
-        isMergingRef.current = false;
+      if (!session?.customerId?.trim()) return;
+      const target = window.sessionStorage.getItem(
+        CHECKOUT_RETURN_PATH_STORAGE_KEY,
+      );
+      if (target) {
+        window.sessionStorage.removeItem(CHECKOUT_RETURN_PATH_STORAGE_KEY);
+        onNavigate(target);
       }
     };
 
-    void mergeAndRedirect();
-    const onSessionChanged = () => {
-      void mergeAndRedirect();
-    };
+    redirectIfNeeded();
     window.addEventListener(
       "customer-auth-session-changed",
-      onSessionChanged as EventListener,
+      redirectIfNeeded as EventListener,
     );
     return () => {
       window.removeEventListener(
         "customer-auth-session-changed",
-        onSessionChanged as EventListener,
+        redirectIfNeeded as EventListener,
       );
     };
-  }, [mergeGuestCart, onNavigate]);
+  }, [onNavigate]);
 
   return null;
 }
@@ -371,27 +363,6 @@ export default function App() {
     ? store.storeId?.trim() || homeSlug || "default"
     : undefined;
   const cartApiConfigured = Boolean(cartApiUrl && cartTenantId && cartStoreId);
-  const [cartApiEnabled, setCartApiEnabled] = useState(cartApiConfigured);
-  const [cartApiFallbackReason, setCartApiFallbackReason] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    setCartApiEnabled(cartApiConfigured);
-    setCartApiFallbackReason(null);
-  }, [cartApiConfigured, cartApiUrl, cartTenantId, cartStoreId]);
-
-  const handleCartApiFailure = (reason: string) => {
-    if (!cartApiConfigured) return;
-    setCartApiEnabled(false);
-    setCartApiFallbackReason(reason);
-  };
-
-  const handleCartApiRetry = () => {
-    if (!cartApiConfigured) return;
-    setCartApiFallbackReason(null);
-    setCartApiEnabled(true);
-  };
 
   const navigate = (path: string) => {
     window.history.pushState(null, "", path);
@@ -438,6 +409,10 @@ export default function App() {
       const existing = loadSession();
       if (!existing) return;
       if (isAccessTokenValid(existing, 60)) return;
+      // Avoid calling refresh when it cannot succeed — failed refresh clears the session.
+      if (!existing.refreshToken?.trim() || !existing.customerId?.trim()) {
+        return;
+      }
       try {
         await runRefresh();
       } finally {
@@ -509,11 +484,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -548,11 +523,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -583,11 +558,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -601,10 +576,6 @@ export default function App() {
           <CartPage
             onNavigate={navigate}
             cartApiConfigured={cartApiConfigured}
-            cartApiEnabled={cartApiEnabled}
-            cartApiFallbackReason={cartApiFallbackReason}
-            onApiFailure={handleCartApiFailure}
-            onRetryApi={handleCartApiRetry}
           />
           <SiteFooter
             siteTitle={siteName}
@@ -625,11 +596,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -666,11 +637,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -706,11 +677,11 @@ export default function App() {
       <StorefrontCartProvider
         key={cartProviderKey}
         tenantId={cartTenantId}
-        apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+        apiBaseUrl={cartApiUrl}
         storeId={cartStoreId}
         getHeaders={cartAuthHeaders}
       >
-        <CartAuthSync onNavigate={navigate} />
+        <PostLoginCheckoutRedirect onNavigate={navigate} />
         <div className="site-wrap">
           <SiteHeader
             siteTitle={siteName}
@@ -747,11 +718,11 @@ export default function App() {
     <StorefrontCartProvider
       key={cartProviderKey}
       tenantId={cartTenantId}
-      apiBaseUrl={cartApiEnabled ? cartApiUrl : undefined}
+      apiBaseUrl={cartApiUrl}
       storeId={cartStoreId}
       getHeaders={cartAuthHeaders}
     >
-      <CartAuthSync onNavigate={navigate} />
+      <PostLoginCheckoutRedirect onNavigate={navigate} />
       <div className="site-wrap">
         <SiteHeader
           siteTitle={siteName}
@@ -782,9 +753,12 @@ export default function App() {
             useDemoData={useDemoData}
             tenantId={store.tenantId}
             storeId={store.storeId}
+            cartGuestStorageTenantId={cartTenantId}
+            cartGuestStorageStoreId={cartStoreId}
             authApiBaseUrl={resolvedAuthApiBase || undefined}
             authFormDefaults={store.authFormDefaults}
             onNavigate={navigate}
+            cartApiConfigured={cartApiConfigured}
           />
         )}
         <SiteFooter
@@ -807,22 +781,31 @@ function PageContent({
   useDemoData,
   tenantId,
   storeId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
   authApiBaseUrl,
   authFormDefaults,
   onNavigate,
+  cartApiConfigured,
 }: {
   page: StoredPage;
   apiBaseUrl?: string;
   useDemoData?: boolean;
   tenantId?: string;
   storeId?: string;
+  cartGuestStorageTenantId?: string;
+  cartGuestStorageStoreId?: string;
   authApiBaseUrl?: string;
   authFormDefaults?: AuthFormDefaults;
   onNavigate: (path: string) => void;
+  cartApiConfigured: boolean;
 }) {
   const doc = page.document;
   const { meta, blocks } = doc;
   const layoutViewport = useStorefrontViewport();
+  const { items, summary } = useCart();
+  const requireGuestCartIdForLogin =
+    cartApiConfigured && (items.length > 0 || summary.itemCount > 0);
 
   // Match builder order: render blocks sorted by layout position (y then x)
   const sortedBlocks = [...blocks].sort((a, b) => {
@@ -923,10 +906,13 @@ function PageContent({
                         useDemoData={useDemoData}
                         tenantId={tenantId}
                         storeId={storeId}
+                        cartGuestStorageTenantId={cartGuestStorageTenantId}
+                        cartGuestStorageStoreId={cartGuestStorageStoreId}
                         authApiBaseUrl={authApiBaseUrl}
                         authFormDefaults={authFormDefaults}
                         onNavigate={onNavigate}
                         layoutViewport={layoutViewport}
+                        requireGuestCartIdForLogin={requireGuestCartIdForLogin}
                       />
                     </div>
                   ) : (
@@ -936,10 +922,13 @@ function PageContent({
                       useDemoData={useDemoData}
                       tenantId={tenantId}
                       storeId={storeId}
+                      cartGuestStorageTenantId={cartGuestStorageTenantId}
+                      cartGuestStorageStoreId={cartGuestStorageStoreId}
                       authApiBaseUrl={authApiBaseUrl}
                       authFormDefaults={authFormDefaults}
                       onNavigate={onNavigate}
                       layoutViewport={layoutViewport}
+                      requireGuestCartIdForLogin={requireGuestCartIdForLogin}
                     />
                   )}
                 </div>

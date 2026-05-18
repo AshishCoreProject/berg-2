@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useCart } from '@storefront-ui-plugin/cart-checkout-plugin';
+import { useCart } from '@ecommerce-store/cart-checkout-plugin';
 import { getDemoProductByHandle, getProductById } from '@berg/blocks';
 
 interface ProductDetailPageProps {
@@ -135,7 +135,7 @@ export function ProductDetailPage({ handle, apiBaseUrl, useDemoData, tenantId, s
   const variantById = useMemo(() => {
     const entries = variants
       .map((v) => [normalizeVariantId(v.id), v] as const)
-      .filter(([id]): id is string => Boolean(id));
+      .filter((pair): pair is [string, LoadedVariant] => Boolean(pair[0]));
     return new Map(entries);
   }, [variants]);
 
