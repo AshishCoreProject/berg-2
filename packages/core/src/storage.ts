@@ -3,8 +3,8 @@
  * Swap implementation for API/IndexedDB in enterprise deployments.
  */
 
-import type { StoreData, StorageAdapter } from './types.js';
-import type { StoredPage } from '@berg/schema';
+import type { AuthFormDefaults, StoreData, StorageAdapter } from './types.js';
+import type { FooterLinksConfig, StoredPage } from '@berg/schema';
 import { logger } from './logger.js';
 
 export const STORAGE_KEY = 'berg-pages';
@@ -19,6 +19,17 @@ function isStoredPage(p: unknown): p is StoredPage {
   );
 }
 
+function isFooterLinksConfig(v: unknown): v is FooterLinksConfig {
+  if (typeof v !== 'object' || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
+}
+
+function isAuthFormDefaults(v: unknown): v is AuthFormDefaults {
+  if (typeof v !== 'object' || v === null) return false;
+  return true;
+}
+
 function parseStore(raw: string): StoreData {
   const data = JSON.parse(raw) as StoreData | { pages?: unknown[] };
   const pages = Array.isArray(data) ? data : (data as StoreData).pages ?? [];
@@ -28,13 +39,18 @@ function parseStore(raw: string): StoreData {
     siteTitle: store.siteTitle,
     homeSlug: store.homeSlug,
     apiBaseUrl: store.apiBaseUrl,
+    tenantId: store.tenantId,
+    storeId: store.storeId,
     theme: store.theme,
     accentColor: store.accentColor,
     useDemoData: store.useDemoData,
     headerStyle: store.headerStyle,
     footerStyle: store.footerStyle,
     buttonStyle: store.buttonStyle,
+    footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
     hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
+    authApiBaseUrl: typeof store.authApiBaseUrl === 'string' ? store.authApiBaseUrl : undefined,
+    authFormDefaults: isAuthFormDefaults(store.authFormDefaults) ? store.authFormDefaults : undefined,
   };
 }
 

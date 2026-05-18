@@ -30,6 +30,8 @@ interface Props {
   onDelete: (id: string) => void;
   onSetHome: (slug: string) => void;
   onToggleShowInHeader?: (pageId: string, show: boolean) => void;
+  /** When false, the page cannot be removed (e.g. fixed /login and /register). */
+  canDeletePage?: (page: StoredPage) => boolean;
 }
 
 export function PageList({
@@ -42,6 +44,7 @@ export function PageList({
   onDelete,
   onSetHome,
   onToggleShowInHeader,
+  canDeletePage,
 }: Props) {
   return (
     <section className="page-list">
@@ -72,8 +75,10 @@ export function PageList({
                 </span>
                 <span className="page-list-slug">/{p.slug}</span>
                 {p.slug === homeSlug && <span className="page-list-home-badge">Home</span>}
+                {(p.slug === 'login' || p.slug === 'register') && <span className="page-list-home-badge">Auth</span>}
                 {p.published === false && <span className="page-list-draft-badge">Draft</span>}
               </div>
+              {(canDeletePage == null || canDeletePage(p)) && (
               <button
                 type="button"
                 className="page-list-delete"
@@ -86,6 +91,7 @@ export function PageList({
               >
                 ×
               </button>
+              )}
             </div>
             {p.slug !== homeSlug && (
               <div className="page-list-actions-row">

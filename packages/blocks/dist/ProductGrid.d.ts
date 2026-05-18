@@ -5,6 +5,8 @@ interface Props {
     limit?: number;
     collectionId?: string;
     useDemoData?: boolean;
+    tenantId?: string;
+    storeId?: string;
     titleFontFamily?: string;
     titleTextColor?: string;
     titleFontSize?: string;
@@ -19,6 +21,6 @@ interface Props {
     buttonBorderRadius?: string;
     buttonPadding?: string;
 }
-export declare function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit, collectionId, useDemoData, titleFontFamily, titleTextColor, titleFontSize, titleFontWeight, titleFontStyle, buttonBackgroundColor, buttonColor, buttonFontFamily, buttonFontSize, buttonFontWeight, buttonFontStyle, buttonBorderRadius, buttonPadding }: Props): import("react/jsx-runtime").JSX.Element;
+export declare function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit, collectionId, useDemoData, tenantId, storeId, titleFontFamily, titleTextColor, titleFontSize, titleFontWeight, titleFontStyle, buttonBackgroundColor, buttonColor, buttonFontFamily, buttonFontSize, buttonFontWeight, buttonFontStyle, buttonBorderRadius, buttonPadding }: Props): import("react/jsx-runtime").JSX.Element;
 export {};
 //# sourceMappingURL=ProductGrid.d.ts.map

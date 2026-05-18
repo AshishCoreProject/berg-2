@@ -31,14 +31,19 @@ export function parseHashPayload(hash) {
             siteTitle: data.siteTitle,
             homeSlug: data.homeSlug,
             apiBaseUrl: data.apiBaseUrl,
+            tenantId: data.tenantId,
+            storeId: data.storeId,
             theme: data.theme,
             accentColor: data.accentColor,
             useDemoData: data.useDemoData,
             openSlug: data.openSlug,
             headerStyle: data.headerStyle,
             footerStyle: data.footerStyle,
+            footerLinks: data.footerLinks,
             buttonStyle: data.buttonStyle,
             hiddenFromHeader: Array.isArray(data.hiddenFromHeader) ? data.hiddenFromHeader : undefined,
+            authApiBaseUrl: data.authApiBaseUrl,
+            authFormDefaults: data.authFormDefaults,
         };
     }
     catch {

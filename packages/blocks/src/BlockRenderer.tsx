@@ -1,14 +1,39 @@
 import { useRef, useEffect } from 'react';
 import type { Block } from '@berg/schema';
 import { isInnerBlocksBlock } from '@berg/schema';
+import type { AuthFormDefaults } from '@berg/core';
 import { sanitizeHtml, isHtml, sanitizeCustomHtml } from './sanitizeHtml';
 import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
+import { CustomerAuthBlock } from './CustomerAuthBlock';
+import { resolveGridLayout, type StorefrontViewport } from './blockLayout';
 
 interface Props {
   block: Block;
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
+  /** Align guest cart localStorage key with CartProvider (storefront). */
+  cartGuestStorageTenantId?: string;
+  cartGuestStorageStoreId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
+  onNavigate?: (path: string) => void;
+  isBuilderPreview?: boolean;
+  /**
+   * Which `layoutByViewport` bucket to use for grid-derived sizing (e.g. core/box min-height).
+   * Storefront passes `useStorefrontViewport()`; builder omits (defaults to desktop).
+   */
+  layoutViewport?: StorefrontViewport;
+  /**
+   * When false, skip rendering `block.children` overlay.
+   * Used by builder to render a clean parent surface and draw children via
+   * its own overlay UI.
+   */
+  renderChildren?: boolean;
+  /** Storefront: require guest cart id in storage for login when the API cart has items. */
+  requireGuestCartIdForLogin?: boolean;
 }
 
 /**
@@ -36,6 +61,16 @@ function FormBlock({
   fields,
   apiBaseUrl,
   useDemoData,
+  tenantId,
+  storeId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
+  authApiBaseUrl,
+  authFormDefaults,
+  onNavigate,
+  isBuilderPreview,
+  layoutViewport,
+  requireGuestCartIdForLogin,
 }: {
   title: string;
   submitButtonText: string;
@@ -43,6 +78,16 @@ function FormBlock({
   fields: Block[];
   apiBaseUrl?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
+  cartGuestStorageTenantId?: string;
+  cartGuestStorageStoreId?: string;
+  authApiBaseUrl?: string;
+  authFormDefaults?: AuthFormDefaults;
+  onNavigate?: (path: string) => void;
+  isBuilderPreview?: boolean;
+  layoutViewport?: StorefrontViewport;
+  requireGuestCartIdForLogin?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -59,7 +104,22 @@ function FormBlock({
       {title && <h3 className="block-form-title">{title}</h3>}
       <form ref={formRef} className="block-form-inner" onSubmit={(e) => e.preventDefault()}>
         {fields.map((f) => (
-          <BlockRenderer key={f.id} block={f} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+          <BlockRenderer
+            key={f.id}
+            block={f}
+            apiBaseUrl={apiBaseUrl}
+            useDemoData={useDemoData}
+            tenantId={tenantId}
+            storeId={storeId}
+            cartGuestStorageTenantId={cartGuestStorageTenantId}
+            cartGuestStorageStoreId={cartGuestStorageStoreId}
+            authApiBaseUrl={authApiBaseUrl}
+            authFormDefaults={authFormDefaults}
+            onNavigate={onNavigate}
+            isBuilderPreview={isBuilderPreview}
+            layoutViewport={layoutViewport}
+            requireGuestCartIdForLogin={requireGuestCartIdForLogin}
+          />
         ))}
         <div className="block-form-actions">
           <button type="submit" className="button-link form-submit-btn">
@@ -84,9 +144,32 @@ function buildSpacingStyle(attrs: Record<string, unknown>): React.CSSProperties 
   return s;
 }
 
-export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
+export function BlockRenderer({
+  block,
+  apiBaseUrl,
+  useDemoData,
+  tenantId,
+  storeId,
+  cartGuestStorageTenantId,
+  cartGuestStorageStoreId,
+  authApiBaseUrl,
+  authFormDefaults,
+  onNavigate,
+  isBuilderPreview,
+  renderChildren,
+  layoutViewport = 'desktop',
+  requireGuestCartIdForLogin,
+}: Props) {
   const attrs = block.attributes ?? {};
   const spacingStyle = buildSpacingStyle(attrs);
+  const textAlign = (attrs.textAlign as string | undefined) ?? 'left';
+  const verticalAlign = (attrs.verticalAlign as string | undefined) ?? 'center';
+  const normalizedTextAlign =
+    textAlign === 'center' || textAlign === 'right' || textAlign === 'left' ? textAlign : 'left';
+  const normalizedVerticalAlign =
+    verticalAlign === 'top' || verticalAlign === 'center' || verticalAlign === 'bottom' ? verticalAlign : 'center';
+  const verticalJustifyContent: React.CSSProperties['justifyContent'] =
+    normalizedVerticalAlign === 'top' ? 'flex-start' : normalizedVerticalAlign === 'bottom' ? 'flex-end' : 'center';
 
   const textStyle = (): React.CSSProperties => {
     const s: React.CSSProperties = {};
@@ -106,7 +189,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
   const wrapWithSpacing = (el: React.ReactNode) => {
     if (Object.keys(spacingStyle).length === 0) return el;
     return (
-      <div style={{ ...spacingStyle, width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ ...spacingStyle, width: '100%', height: '100%', boxSizing: 'border-box' }}>
         {el}
       </div>
     );
@@ -115,11 +198,42 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
   let content: React.ReactNode = null;
 
   switch (block.type) {
+    case 'core/box': {
+      // On storefront, an empty Box has no intrinsic height. Use builder layout rows (40px)
+      // as a sensible default so background/border/shadow are visible.
+      const layout = resolveGridLayout(attrs as Record<string, unknown>, layoutViewport);
+      const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
+      const style: React.CSSProperties = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
+      const bg = attrs.backgroundColor as string | undefined;
+      const radius = attrs.borderRadius as string | undefined;
+      const pad = attrs.padding as string | undefined;
+      const boxShadow = attrs.boxShadow as string | undefined;
+      const border = attrs.border as string | undefined;
+      if (bg) style.backgroundColor = bg;
+      if (radius) style.borderRadius = radius;
+      if (pad) style.padding = pad;
+      if (boxShadow) style.boxShadow = boxShadow;
+      if (border) style.border = border;
+      content = (
+        <div className="block block-box" style={style} />
+      );
+      break;
+    }
+
     case 'core/paragraph': {
       const c = (attrs.content as string) ?? '';
       if (!c.trim()) break;
       const style = textStyle();
-      content = isHtml(c) ? <p className="block block-paragraph" style={style} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <p className="block block-paragraph" style={style}>{c}</p>;
+      style.textAlign = normalizedTextAlign;
+      const nodeStyle: React.CSSProperties = { ...style, flex: '0 0 auto' };
+      content = (
+        <div
+          className="block-vertical-align-wrap"
+          style={{ display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }}
+        >
+          {isHtml(c) ? <p className="block block-paragraph" style={nodeStyle} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <p className="block block-paragraph" style={nodeStyle}>{c}</p>}
+        </div>
+      );
       break;
     }
 
@@ -129,7 +243,16 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
       if (!c.trim()) break;
       const style = textStyle();
-      content = isHtml(c) ? <Tag className="block block-heading" style={style} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <Tag className="block block-heading" style={style}>{c}</Tag>;
+      style.textAlign = normalizedTextAlign;
+      const nodeStyle: React.CSSProperties = { ...style, flex: '0 0 auto' };
+      content = (
+        <div
+          className="block-vertical-align-wrap"
+          style={{ display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }}
+        >
+          {isHtml(c) ? <Tag className="block block-heading" style={nodeStyle} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c) }} /> : <Tag className="block block-heading" style={nodeStyle}>{c}</Tag>}
+        </div>
+      );
       break;
     }
 
@@ -202,7 +325,21 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
             >
               {block.innerBlocks.map((col) => (
                 <div key={col.id} className="column">
-                  <BlockRenderer block={col} apiBaseUrl={apiBaseUrl} useDemoData={useDemoData} />
+                  <BlockRenderer
+                    block={col}
+                    apiBaseUrl={apiBaseUrl}
+                    useDemoData={useDemoData}
+                    tenantId={tenantId}
+                    storeId={storeId}
+                    cartGuestStorageTenantId={cartGuestStorageTenantId}
+                    cartGuestStorageStoreId={cartGuestStorageStoreId}
+                    authApiBaseUrl={authApiBaseUrl}
+                    authFormDefaults={authFormDefaults}
+                    onNavigate={onNavigate}
+                    isBuilderPreview={isBuilderPreview}
+                    layoutViewport={layoutViewport}
+                    requireGuestCartIdForLogin={requireGuestCartIdForLogin}
+                  />
                 </div>
               ))}
             </div>
@@ -420,6 +557,8 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
           limit={(attrs.limit as number) ?? 12}
           collectionId={(attrs.collectionId as string) || undefined}
           useDemoData={useDemoData}
+          tenantId={tenantId}
+          storeId={storeId}
           titleFontFamily={(attrs.fontFamily as string) || undefined}
           titleTextColor={(attrs.textColor as string) || undefined}
           titleFontSize={(attrs.fontSize as string) || (attrs.titleFontSize as string) || undefined}
@@ -476,11 +615,17 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
       const btnStyle: React.CSSProperties = {};
       if (attrs.buttonBackgroundColor) btnStyle.backgroundColor = attrs.buttonBackgroundColor as string;
       if (attrs.buttonColor) btnStyle.color = attrs.buttonColor as string;
+      const subtitleStyle: React.CSSProperties = {};
+      if (attrs.textColor) subtitleStyle.color = attrs.textColor as string;
       content = (
         <section className="block block-newsletter" style={style}>
           <div className="newsletter-inner">
-            <h3 className="newsletter-title" style={Object.keys(titleStyle).length > 1 ? titleStyle : undefined}>{isHtml(title) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(title) }} /> : title}</h3>
-            <p className="newsletter-subtitle">{isHtml(subtitle) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(subtitle) }} /> : subtitle}</p>
+            <h3 className="newsletter-title" style={Object.keys(titleStyle).length > 1 ? titleStyle : undefined}>
+              {isHtml(title) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(title) }} /> : title}
+            </h3>
+            <p className="newsletter-subtitle" style={Object.keys(subtitleStyle).length ? subtitleStyle : undefined}>
+              {isHtml(subtitle) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(subtitle) }} /> : subtitle}
+            </p>
             <form className="newsletter-form" onSubmit={(e) => e.preventDefault()}>
               <input type="email" placeholder="Enter your email" className="newsletter-input" aria-label="Email" />
               <button type="submit" className="button-link newsletter-btn" style={Object.keys(btnStyle).length ? btnStyle : undefined}>{isHtml(buttonText) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(buttonText) }} /> : buttonText}</button>
@@ -504,6 +649,16 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
             fields={block.innerBlocks}
             apiBaseUrl={apiBaseUrl}
             useDemoData={useDemoData}
+            tenantId={tenantId}
+            storeId={storeId}
+            cartGuestStorageTenantId={cartGuestStorageTenantId}
+            cartGuestStorageStoreId={cartGuestStorageStoreId}
+            authApiBaseUrl={authApiBaseUrl}
+            authFormDefaults={authFormDefaults}
+            onNavigate={onNavigate}
+            isBuilderPreview={isBuilderPreview}
+            layoutViewport={layoutViewport}
+            requireGuestCartIdForLogin={requireGuestCartIdForLogin}
           />
         );
       } else {
@@ -638,10 +793,77 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }: Props) {
       break;
     }
 
+    case 'store/customer-auth': {
+      content = (
+        <CustomerAuthBlock
+          attrs={attrs}
+          authApiBaseUrl={authApiBaseUrl}
+          authFormDefaults={authFormDefaults}
+          storeId={storeId}
+          tenantId={tenantId}
+          cartGuestStorageTenantId={cartGuestStorageTenantId}
+          cartGuestStorageStoreId={cartGuestStorageStoreId}
+          onNavigate={onNavigate}
+          isBuilderPreview={isBuilderPreview}
+          requireGuestCartIdForLogin={requireGuestCartIdForLogin}
+        />
+      );
+      break;
+    }
+
     default:
       break;
   }
 
-  if (!content) return null;
-  return wrapWithSpacing(content);
+  const children = block.children;
+  const showChildren = renderChildren !== false && Array.isArray(children) && children.length > 0;
+  if (!content && !showChildren) return null;
+  const base = content ? wrapWithSpacing(content) : null;
+  if (!showChildren) return base;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'visible' }}>
+      {base}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto', overflow: 'visible' }}>
+        {children.map((child) => {
+          const layerLayout = child.attributes?.layerLayout as
+            | { xPct?: number; yPct?: number; wPct?: number; hPct?: number }
+            | undefined;
+          const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
+          const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
+          const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
+          const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+          return (
+            <div
+              key={child.id}
+              style={{
+                position: 'absolute',
+                left: `${xPct}%`,
+                top: `${yPct}%`,
+                width: `${wPct}%`,
+                height: `${hPct}%`,
+                overflow: 'visible',
+              }}
+            >
+              <BlockRenderer
+                block={child}
+                apiBaseUrl={apiBaseUrl}
+                useDemoData={useDemoData}
+                tenantId={tenantId}
+                storeId={storeId}
+                cartGuestStorageTenantId={cartGuestStorageTenantId}
+                cartGuestStorageStoreId={cartGuestStorageStoreId}
+                authApiBaseUrl={authApiBaseUrl}
+                authFormDefaults={authFormDefaults}
+                onNavigate={onNavigate}
+                isBuilderPreview={isBuilderPreview}
+                renderChildren={renderChildren}
+                layoutViewport={layoutViewport}
+                requireGuestCartIdForLogin={requireGuestCartIdForLogin}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

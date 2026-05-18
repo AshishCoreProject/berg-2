@@ -11,6 +11,17 @@ function isStoredPage(p) {
         'slug' in p &&
         'document' in p);
 }
+function isFooterLinksConfig(v) {
+    if (typeof v !== 'object' || v === null)
+        return false;
+    const o = v;
+    return Array.isArray(o.columns) && Array.isArray(o.bottomLinks);
+}
+function isAuthFormDefaults(v) {
+    if (typeof v !== 'object' || v === null)
+        return false;
+    return true;
+}
 function parseStore(raw) {
     const data = JSON.parse(raw);
     const pages = Array.isArray(data) ? data : data.pages ?? [];
@@ -20,13 +31,18 @@ function parseStore(raw) {
         siteTitle: store.siteTitle,
         homeSlug: store.homeSlug,
         apiBaseUrl: store.apiBaseUrl,
+        tenantId: store.tenantId,
+        storeId: store.storeId,
         theme: store.theme,
         accentColor: store.accentColor,
         useDemoData: store.useDemoData,
         headerStyle: store.headerStyle,
         footerStyle: store.footerStyle,
         buttonStyle: store.buttonStyle,
+        footerLinks: isFooterLinksConfig(store.footerLinks) ? store.footerLinks : undefined,
         hiddenFromHeader: Array.isArray(store.hiddenFromHeader) ? store.hiddenFromHeader : undefined,
+        authApiBaseUrl: typeof store.authApiBaseUrl === 'string' ? store.authApiBaseUrl : undefined,
+        authFormDefaults: isAuthFormDefaults(store.authFormDefaults) ? store.authFormDefaults : undefined,
     };
 }
 /** Sync load – for backward compatibility. Uses localStorage directly. */

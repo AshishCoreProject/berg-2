@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react';
 import { DEMO_PRODUCTS } from './demoData';
 import { sanitizeHtml, isHtml } from './sanitizeHtml';
+import { listProducts, type NormalizedProduct } from './productApi';
 
-interface Product {
-  id: string;
-  title: string;
-  description?: string;
-  price: number;
-  image?: string;
-  handle?: string;
-  [key: string]: unknown;
-}
+type Product = NormalizedProduct;
 
 interface Props {
   apiBaseUrl?: string;
@@ -19,6 +12,8 @@ interface Props {
   limit?: number;
   collectionId?: string;
   useDemoData?: boolean;
+  tenantId?: string;
+  storeId?: string;
   titleFontFamily?: string;
   titleTextColor?: string;
   titleFontSize?: string;
@@ -34,7 +29,7 @@ interface Props {
   buttonPadding?: string;
 }
 
-export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collectionId, useDemoData, titleFontFamily, titleTextColor, titleFontSize, titleFontWeight, titleFontStyle, buttonBackgroundColor, buttonColor, buttonFontFamily, buttonFontSize, buttonFontWeight, buttonFontStyle, buttonBorderRadius, buttonPadding }: Props) {
+export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collectionId, useDemoData, tenantId, storeId, titleFontFamily, titleTextColor, titleFontSize, titleFontWeight, titleFontStyle, buttonBackgroundColor, buttonColor, buttonFontFamily, buttonFontSize, buttonFontWeight, buttonFontStyle, buttonBorderRadius, buttonPadding }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,16 +68,16 @@ export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collec
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const url = new URL(apiEndpoint, apiBaseUrl);
-        if (collectionId) url.searchParams.set('collection', collectionId);
-        if (limit) url.searchParams.set('limit', limit.toString());
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : data.products || data.items || [];
-        setProducts(items);
+        const { data } = await listProducts({
+          apiBaseUrl,
+          endpoint: apiEndpoint,
+          limit,
+          page: 1,
+          tenantId,
+          storeId,
+          extraQuery: collectionId ? { collection: collectionId } : undefined,
+        });
+        setProducts(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load products');
       } finally {
@@ -91,7 +86,7 @@ export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collec
     };
 
     fetchProducts();
-  }, [apiBaseUrl, apiEndpoint, collectionId, limit, useDemoData]);
+  }, [apiBaseUrl, apiEndpoint, collectionId, limit, useDemoData, tenantId, storeId]);
 
   if (loading) {
     return (
@@ -115,7 +110,11 @@ export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collec
     return (
       <section className="block block-product-grid">
         <h2 className="block-heading" style={Object.keys(titleStyle).length ? titleStyle : undefined}>{isHtml(title) ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(title) }} /> : title}</h2>
-        <p>No products found.</p>
+        <p>
+          {useDemoData
+            ? 'No demo products found.'
+            : 'No products found for this tenant/store. Verify Tenant ID, Store ID, and API data.'}
+        </p>
       </section>
     );
   }
@@ -137,8 +136,8 @@ export function ProductGrid({ apiBaseUrl, apiEndpoint, title, limit = 12, collec
                 <p className="product-description">{product.description}</p>
               )}
               <div className="product-price">${product.price.toFixed(2)}</div>
-              {product.handle && (
-                <a href={`/products/${product.handle}`} className="product-link" style={Object.keys(linkStyle).length ? linkStyle : undefined}>
+              {(useDemoData ? product.handle : product.id) && (
+                <a href={`/products/${encodeURIComponent(useDemoData ? product.handle : product.id)}`} className="product-link" style={Object.keys(linkStyle).length ? linkStyle : undefined}>
                   View Product
                 </a>
               )}

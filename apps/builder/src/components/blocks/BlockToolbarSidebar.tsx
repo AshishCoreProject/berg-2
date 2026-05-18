@@ -7,7 +7,9 @@ import { isInnerBlocksBlock, createBlockId, getBlockDefinition } from '@berg/sch
 import { TypographyControls } from '@/components/controls/TypographyControls';
 import { ButtonStyleControls } from '@/components/controls/ButtonStyleControls';
 import { TextEditor } from '@/components/controls/TextEditor';
+import { StyleEditor } from '@/components/controls/StyleEditor';
 import { CollapsibleSection } from '@/features/sidebar';
+import type { Viewport } from '@/components/canvas/ViewportSwitcher';
 
 interface Props {
   block: Block;
@@ -20,14 +22,155 @@ interface Props {
   gridColumnSpan: number;
   gridColumnStart: number;
   onGridChange?: (span: number, start: number) => void;
+  viewport: Viewport;
+  /** When true, the "Layout" section edits `block.attributes.layerLayout` instead of `block.attributes.layout`. */
+  isLayerChildSelected?: boolean;
+  /** Rendered height in px for the selected layer child parent overlay. Used to convert px <-> hPct. */
+  layerParentHeightPx?: number;
+  /** Logical "column" span for the parent's overlay. Used only for mapping wPct <-> width select. */
+  layerParentSpan?: number;
 }
 
 const TYPOGRAPHY_BLOCK_TYPES: Block['type'][] = [
   'core/paragraph', 'core/heading', 'core/button', 'core/hero',
   'core/list', 'core/quote', 'store/product-grid', 'store/collection-list',
-  'store/promo-banner', 'store/newsletter', 'store/testimonials', 'store/trust-badges',
+  'store/promo-banner', 'store/newsletter', 'store/testimonials', 'store/trust-badges', 'store/customer-auth',
 ];
 const BUTTON_STYLE_BLOCK_TYPES: Block['type'][] = ['core/button', 'core/hero', 'store/product-grid', 'store/collection-list'];
+type TextAlignValue = 'left' | 'center' | 'right';
+type VerticalAlignValue = 'top' | 'center' | 'bottom';
+const AUTH_SUBMIT_GRADIENT_PRESETS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'None (theme default)' },
+  { value: 'ocean', label: 'Ocean blue' },
+  { value: 'sunset', label: 'Sunset orange' },
+  { value: 'violet', label: 'Violet glow' },
+  { value: 'emerald', label: 'Emerald fresh' },
+  { value: 'midnight', label: 'Midnight dark' },
+];
+
+function TextAlignControl({
+  value,
+  onChange,
+}: {
+  value: TextAlignValue;
+  onChange: (next: TextAlignValue) => void;
+}) {
+  const options: Array<{ value: TextAlignValue; label: string; icon: JSX.Element }> = [
+    {
+      value: 'left',
+      label: 'Align left',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="14" y2="12" />
+          <line x1="4" y1="18" x2="18" y2="18" />
+        </svg>
+      ),
+    },
+    {
+      value: 'center',
+      label: 'Align center',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="7" y1="12" x2="17" y2="12" />
+          <line x1="6" y1="18" x2="18" y2="18" />
+        </svg>
+      ),
+    },
+    {
+      value: 'right',
+      label: 'Align right',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="10" y1="12" x2="20" y2="12" />
+          <line x1="6" y1="18" x2="20" y2="18" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="toolbar-align-group" role="group" aria-label="Text alignment">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`toolbar-btn toolbar-btn-icon toolbar-align-btn ${value === option.value ? 'toolbar-align-btn-active' : ''}`}
+          onClick={() => onChange(option.value)}
+          aria-label={option.label}
+          title={option.label}
+          aria-pressed={value === option.value}
+        >
+          {option.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function VerticalAlignControl({
+  value,
+  onChange,
+}: {
+  value: VerticalAlignValue;
+  onChange: (next: VerticalAlignValue) => void;
+}) {
+  const options: Array<{ value: VerticalAlignValue; label: string; icon: JSX.Element }> = [
+    {
+      value: 'top',
+      label: 'Align top',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="5" x2="20" y2="5" />
+          <line x1="8" y1="10" x2="16" y2="10" />
+          <line x1="8" y1="14" x2="16" y2="14" />
+        </svg>
+      ),
+    },
+    {
+      value: 'center',
+      label: 'Align middle',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="8" y1="8" x2="16" y2="8" />
+          <line x1="8" y1="16" x2="16" y2="16" />
+        </svg>
+      ),
+    },
+    {
+      value: 'bottom',
+      label: 'Align bottom',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="4" y1="19" x2="20" y2="19" />
+          <line x1="8" y1="10" x2="16" y2="10" />
+          <line x1="8" y1="14" x2="16" y2="14" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="toolbar-align-group" role="group" aria-label="Vertical text alignment">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`toolbar-btn toolbar-btn-icon toolbar-align-btn ${value === option.value ? 'toolbar-align-btn-active' : ''}`}
+          onClick={() => onChange(option.value)}
+          aria-label={option.label}
+          title={option.label}
+          aria-pressed={value === option.value}
+        >
+          {option.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function BlockToolbarSidebar({
   block,
@@ -40,8 +183,13 @@ export function BlockToolbarSidebar({
   gridColumnSpan,
   gridColumnStart,
   onGridChange,
+  viewport,
+  isLayerChildSelected = false,
+  layerParentHeightPx,
+  layerParentSpan: _layerParentSpan = 12,
 }: Props) {
   const attrs = block.attributes ?? {};
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
   const hasTypography = TYPOGRAPHY_BLOCK_TYPES.includes(block.type);
   const typographyAttrs = hasTypography
     ? {
@@ -73,6 +221,28 @@ export function BlockToolbarSidebar({
     : null;
 
   const blockTypeLabel = block.type.replace('core/', '').replace('store/', '');
+  type SpacingKey =
+    | 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft'
+    | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft';
+
+  const parseSpacingMode = (value: string | undefined): 'auto' | 'fixed' => {
+    const normalized = (value ?? '').trim().toLowerCase();
+    return normalized === 'auto' ? 'auto' : 'fixed';
+  };
+
+  const parseSpacingValue = (value: string | undefined): string => {
+    const normalized = (value ?? '').trim();
+    if (!normalized || normalized.toLowerCase() === 'auto') return '';
+    return normalized;
+  };
+
+  const updateSpacingValue = (key: SpacingKey, mode: 'auto' | 'fixed', nextValue: string) => {
+    if (mode === 'auto') {
+      onUpdate({ [key]: 'auto' });
+      return;
+    }
+    onUpdate({ [key]: nextValue.trim() || undefined });
+  };
 
   return (
     <div className="block-toolbar-sidebar">
@@ -82,10 +252,35 @@ export function BlockToolbarSidebar({
       </div>
       <CollapsibleSection title="Content" defaultOpen className="sidebar-section-content-primary">
         <div className="block-toolbar block-toolbar-in-sidebar">
+        {block.type === 'core/box' && (
+          <div className="toolbar-field">
+            <StyleEditor
+              title="Box style"
+              variant="box"
+              values={{
+                backgroundColor: (attrs.backgroundColor as string) || undefined,
+                borderRadius: (attrs.borderRadius as string) || undefined,
+                padding: (attrs.padding as string) || undefined,
+                boxShadow: (attrs.boxShadow as string) || undefined,
+                border: (attrs.border as string) || undefined,
+              }}
+              onChange={(next) => {
+                onUpdate({
+                  backgroundColor: next.backgroundColor,
+                  borderRadius: next.borderRadius,
+                  padding: next.padding,
+                  boxShadow: next.boxShadow,
+                  border: next.border,
+                });
+              }}
+            />
+          </div>
+        )}
         {block.type === 'core/paragraph' && (
           <div className="toolbar-field">
             <span className="toolbar-group-label">Paragraph text</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.content as string) ?? ''}
               onChange={(html) => onUpdate({ content: html })}
               placeholder="Write your paragraph…"
@@ -98,6 +293,7 @@ export function BlockToolbarSidebar({
             <div className="toolbar-field">
               <span className="toolbar-group-label">Heading text</span>
               <TextEditor
+                toolbarMode="hidden"
                 value={(attrs.content as string) ?? ''}
                 onChange={(html) => onUpdate({ content: html })}
                 placeholder="Heading"
@@ -117,6 +313,38 @@ export function BlockToolbarSidebar({
                 ))}
               </select>
             </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
+            </div>
+          </>
+        )}
+        {block.type === 'core/paragraph' && (
+          <>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
+            </div>
           </>
         )}
         {block.type === 'core/hero' && (
@@ -124,6 +352,7 @@ export function BlockToolbarSidebar({
             <div className="toolbar-field hero-content-field">
               <span className="toolbar-group-label">Title</span>
               <TextEditor
+                toolbarMode="hidden"
                 value={(attrs.title as string) ?? ''}
                 onChange={(html) => onUpdate({ title: html })}
                 placeholder="Hero title"
@@ -133,6 +362,7 @@ export function BlockToolbarSidebar({
             <div className="toolbar-field hero-content-field">
               <span className="toolbar-group-label">Subtitle</span>
               <TextEditor
+                toolbarMode="hidden"
                 value={(attrs.subtitle as string) ?? ''}
                 onChange={(html) => onUpdate({ subtitle: html })}
                 placeholder="Subtitle"
@@ -142,6 +372,7 @@ export function BlockToolbarSidebar({
             <div className="toolbar-field hero-content-field">
               <span className="toolbar-group-label">CTA text</span>
               <TextEditor
+                toolbarMode="hidden"
                 value={(attrs.ctaText as string) ?? ''}
                 onChange={(html) => onUpdate({ ctaText: html })}
                 placeholder="Button text"
@@ -289,6 +520,7 @@ export function BlockToolbarSidebar({
           <>
             <span className="toolbar-group-label">Section title</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.title as string) ?? ''}
               onChange={(html) => onUpdate({ title: html })}
               placeholder="Featured products"
@@ -667,6 +899,7 @@ export function BlockToolbarSidebar({
           <>
             <span className="toolbar-group-label">Banner text</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.text as string) ?? ''}
               onChange={(html) => onUpdate({ text: html })}
               placeholder="Free shipping on orders over $50"
@@ -687,6 +920,7 @@ export function BlockToolbarSidebar({
           <>
             <span className="toolbar-group-label">Title</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.title as string) ?? ''}
               onChange={(html) => onUpdate({ title: html })}
               placeholder="Join our newsletter"
@@ -694,6 +928,7 @@ export function BlockToolbarSidebar({
             />
             <span className="toolbar-group-label">Subtitle</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.subtitle as string) ?? ''}
               onChange={(html) => onUpdate({ subtitle: html })}
               placeholder="Get 10% off your first order."
@@ -701,6 +936,7 @@ export function BlockToolbarSidebar({
             />
             <span className="toolbar-group-label">Button text</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.buttonText as string) ?? ''}
               onChange={(html) => onUpdate({ buttonText: html })}
               placeholder="Subscribe"
@@ -708,10 +944,229 @@ export function BlockToolbarSidebar({
             />
           </>
         )}
+        {block.type === 'store/customer-auth' && (
+          <>
+            <span className="toolbar-group-label">Mode</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.mode as string) === 'register' ? 'register' : 'login'}
+              onChange={(e) => onUpdate({ mode: e.target.value })}
+              aria-label="Auth mode"
+            >
+              <option value="login">Login</option>
+              <option value="register">Register</option>
+            </select>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Alignment</span>
+              <TextAlignControl
+                value={((attrs.textAlign as TextAlignValue) ?? 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </div>
+            <div className="toolbar-field">
+              <span className="toolbar-group-label">Vertical align</span>
+              <VerticalAlignControl
+                value={((attrs.verticalAlign as VerticalAlignValue) ?? 'center')}
+                onChange={(verticalAlign) => onUpdate({ verticalAlign })}
+              />
+            </div>
+            <span className="toolbar-group-label">Submit button width</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.submitButtonWidth as string) === 'full' ? 'full' : 'auto'}
+              onChange={(e) => onUpdate({ submitButtonWidth: e.target.value })}
+              aria-label="Submit button width"
+            >
+              <option value="auto">Auto</option>
+              <option value="full">Full width</option>
+            </select>
+            <span className="toolbar-group-label">Submit button gradient</span>
+            <select
+              className="toolbar-input-full"
+              value={(attrs.submitButtonGradient as string) ?? ''}
+              onChange={(e) => onUpdate({ submitButtonGradient: e.target.value })}
+              aria-label="Submit button gradient"
+            >
+              {AUTH_SUBMIT_GRADIENT_PRESETS.map((preset) => (
+                <option key={preset.value || 'none'} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            <span className="toolbar-group-label">Submit button text color</span>
+            <div className="toolbar-color-row">
+              <input
+                type="color"
+                value={(attrs.submitButtonTextColor as string) || '#ffffff'}
+                onChange={(e) => onUpdate({ submitButtonTextColor: e.target.value })}
+                className="toolbar-color-picker"
+                aria-label="Submit button text color"
+              />
+              <input
+                type="text"
+                className="toolbar-input-full toolbar-color-hex"
+                value={(attrs.submitButtonTextColor as string) ?? ''}
+                onChange={(e) => onUpdate({ submitButtonTextColor: e.target.value.trim() || '' })}
+                placeholder="#ffffff"
+                aria-label="Submit button text color hex"
+              />
+            </div>
+            <span className="toolbar-group-label">Form min height (px)</span>
+            <input
+              type="number"
+              min={260}
+              max={1000}
+              step={4}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formMinHeight as string) ?? '440px'), 10) || 440}
+              onChange={(e) => onUpdate({ formMinHeight: `${Math.max(260, Number(e.target.value) || 440)}px` })}
+              aria-label="Form min height"
+            />
+            <span className="toolbar-group-label">Form padding (px)</span>
+            <input
+              type="number"
+              min={10}
+              max={64}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formPadding as string) ?? '28px'), 10) || 28}
+              onChange={(e) => onUpdate({ formPadding: `${Math.max(10, Number(e.target.value) || 28)}px` })}
+              aria-label="Form padding"
+            />
+            <span className="toolbar-group-label">Form vertical gap (px)</span>
+            <input
+              type="number"
+              min={6}
+              max={40}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.formGap as string) ?? '16px'), 10) || 16}
+              onChange={(e) => onUpdate({ formGap: `${Math.max(6, Number(e.target.value) || 16)}px` })}
+              aria-label="Form vertical gap"
+            />
+            <span className="toolbar-group-label">Space between fields (px)</span>
+            <input
+              type="number"
+              min={0}
+              max={32}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.fieldGap as string) ?? '10px'), 10) || 10}
+              onChange={(e) => onUpdate({ fieldGap: `${Math.max(0, Number(e.target.value) || 10)}px` })}
+              aria-label="Space between fields"
+            />
+            <span className="toolbar-group-label">Label to input gap (px)</span>
+            <input
+              type="number"
+              min={2}
+              max={24}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.labelInputGap as string) ?? '8px'), 10) || 8}
+              onChange={(e) => onUpdate({ labelInputGap: `${Math.max(2, Number(e.target.value) || 8)}px` })}
+              aria-label="Label to input gap"
+            />
+            <span className="toolbar-group-label">Input min height (px)</span>
+            <input
+              type="number"
+              min={36}
+              max={72}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.inputMinHeight as string) ?? '44px'), 10) || 44}
+              onChange={(e) => onUpdate({ inputMinHeight: `${Math.max(36, Number(e.target.value) || 44)}px` })}
+              aria-label="Input min height"
+            />
+            <span className="toolbar-group-label">Input vertical padding (px)</span>
+            <input
+              type="number"
+              min={6}
+              max={22}
+              step={1}
+              className="toolbar-input-full"
+              value={parseInt(String((attrs.inputPaddingY as string) ?? '10px'), 10) || 10}
+              onChange={(e) => onUpdate({ inputPaddingY: `${Math.max(6, Number(e.target.value) || 10)}px` })}
+              aria-label="Input vertical padding"
+            />
+            <span className="toolbar-group-label">Email label (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.emailLabel as string) ?? ''}
+              onChange={(e) => onUpdate({ emailLabel: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Email placeholder (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.emailPlaceholder as string) ?? ''}
+              onChange={(e) => onUpdate({ emailPlaceholder: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Password label (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.passwordLabel as string) ?? ''}
+              onChange={(e) => onUpdate({ passwordLabel: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Password placeholder (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.passwordPlaceholder as string) ?? ''}
+              onChange={(e) => onUpdate({ passwordPlaceholder: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Submit button (override)</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.submitText as string) ?? ''}
+              onChange={(e) => onUpdate({ submitText: e.target.value })}
+              placeholder="Leave empty to use site default"
+            />
+            <span className="toolbar-group-label">Alternate prompt</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternatePrompt as string) ?? ''}
+              onChange={(e) => onUpdate({ alternatePrompt: e.target.value })}
+              placeholder="e.g. Don't have an account?"
+            />
+            <span className="toolbar-group-label">Alternate link text</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternateLinkText as string) ?? ''}
+              onChange={(e) => onUpdate({ alternateLinkText: e.target.value })}
+              placeholder="e.g. Create account"
+            />
+            <span className="toolbar-group-label">Alternate path</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.alternatePath as string) ?? ''}
+              onChange={(e) => onUpdate({ alternatePath: e.target.value })}
+              placeholder="/register or /login"
+            />
+            <span className="toolbar-group-label">After success redirect</span>
+            <input
+              type="text"
+              className="toolbar-input-full"
+              value={(attrs.successRedirect as string) ?? ''}
+              onChange={(e) => onUpdate({ successRedirect: e.target.value })}
+              placeholder="/ or /login (empty = mode default)"
+            />
+          </>
+        )}
         {block.type === 'store/collection-list' && (
           <>
             <span className="toolbar-group-label">Section title</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.title as string) ?? ''}
               onChange={(html) => onUpdate({ title: html })}
               placeholder="Collections"
@@ -750,6 +1205,7 @@ export function BlockToolbarSidebar({
             />
             <span className="toolbar-group-label">Caption</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.caption as string) ?? ''}
               onChange={(html) => onUpdate({ caption: html })}
               placeholder="Optional caption"
@@ -791,6 +1247,7 @@ export function BlockToolbarSidebar({
           <>
             <span className="toolbar-group-label">Button text</span>
             <TextEditor
+              toolbarMode="hidden"
               value={(attrs.text as string) ?? ''}
               onChange={(html) => onUpdate({ text: html })}
               placeholder="Click me"
@@ -818,11 +1275,15 @@ export function BlockToolbarSidebar({
                 value={(attrs.height as number) ?? 40}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
+                  const existingByViewport = (attrs.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+                  const currentLayout = (existingByViewport[viewport] as Record<string, unknown> | undefined) ?? {};
                   const rowHeight = 40;
                   onUpdate({
                     height: v,
-                    layout: { ...layout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                    layoutByViewport: {
+                      ...existingByViewport,
+                      [viewport]: { ...currentLayout, h: Math.max(1, Math.ceil(v / rowHeight)) },
+                    },
                   });
                 }}
                 aria-label="Spacer height"
@@ -895,6 +1356,7 @@ export function BlockToolbarSidebar({
               return displayItems.map((item, i) => (
               <div key={i} className="toolbar-row" style={{ marginBottom: '0.5rem', gap: '0.5rem', alignItems: 'flex-start' }}>
                 <TextEditor
+                  toolbarMode="hidden"
                   value={item}
                   onChange={(html) => {
                     const items = (attrs.items as string[]) ?? [];
@@ -939,6 +1401,7 @@ export function BlockToolbarSidebar({
             <div className="toolbar-field">
               <span className="toolbar-group-label">Section title</span>
               <TextEditor
+                toolbarMode="hidden"
                 value={(attrs.title as string) ?? ''}
                 onChange={(html) => onUpdate({ title: html })}
                 placeholder="What our customers say"
@@ -951,7 +1414,7 @@ export function BlockToolbarSidebar({
                 <div className="block-toolbar block-toolbar-in-sidebar">
                   <div className="toolbar-field">
                     <span className="toolbar-group-label">Quote</span>
-                    <TextEditor value={item.quote} onChange={(html) => {
+                    <TextEditor toolbarMode="hidden" value={item.quote} onChange={(html) => {
                       const items = (attrs.items as Array<{ quote: string; author: string; rating?: number }>) ?? [];
                       const next = [...items]; if (!next[i]) next[i] = { quote: '', author: '', rating: 5 };
                       next[i] = { ...next[i], quote: html }; onUpdate({ items: next });
@@ -959,7 +1422,7 @@ export function BlockToolbarSidebar({
                   </div>
                   <div className="toolbar-field">
                     <span className="toolbar-group-label">Author</span>
-                    <TextEditor value={item.author} onChange={(html) => {
+                    <TextEditor toolbarMode="hidden" value={item.author} onChange={(html) => {
                       const items = (attrs.items as Array<{ quote: string; author: string; rating?: number }>) ?? [];
                       const next = [...items]; if (!next[i]) next[i] = { quote: '', author: '', rating: 5 };
                       next[i] = { ...next[i], author: html }; onUpdate({ items: next });
@@ -1078,15 +1541,42 @@ export function BlockToolbarSidebar({
                 step={40}
                 className="toolbar-input-full"
                 value={(() => {
-                  const layout = attrs.layout as { h?: number } | undefined;
+                  if (isLayerChildSelected) {
+                    const layerLayout = attrs.layerLayout as { hPct?: number } | undefined;
+                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 25;
+                    const parentH = layerParentHeightPx ?? 0;
+                    if (parentH <= 0) return 40;
+                    const px = Math.round((hPct / 100) * parentH);
+                    return clamp(px, 40, 800);
+                  }
+
+                  const layout = ((attrs.layoutByViewport as Record<string, unknown> | undefined)?.[viewport] as { h?: number } | undefined) ?? undefined;
                   const h = layout?.h ?? 2;
                   return h * 40;
                 })()}
                 onChange={(e) => {
                   const px = Math.max(40, Math.min(800, Number(e.target.value) || 40));
+                  if (isLayerChildSelected) {
+                    const layerLayout = (attrs.layerLayout as Record<string, unknown> | undefined) ?? {};
+                    const yPct = (typeof (layerLayout as { yPct?: number })?.yPct === 'number' ? (layerLayout as { yPct?: number }).yPct : 0) ?? 0;
+                    const parentH = layerParentHeightPx ?? 0;
+                    const minHPct = 2;
+                    const maxHPct = clamp(100 - yPct, minHPct, 100);
+                    const rawHPct = parentH > 0 ? (px / parentH) * 100 : minHPct;
+                    const hPct = clamp(rawHPct, minHPct, maxHPct);
+                    onUpdate({ layerLayout: { ...layerLayout, hPct } });
+                    return;
+                  }
+
                   const h = Math.max(1, Math.round(px / 40));
-                  const layout = (attrs.layout as { x?: number; y?: number; w?: number; h?: number }) ?? {};
-                  onUpdate({ layout: { ...layout, h } });
+                  const existingByViewport = (attrs.layoutByViewport as Record<string, unknown> | undefined) ?? {};
+                  const currentLayout = (existingByViewport[viewport] as Record<string, unknown> | undefined) ?? {};
+                  onUpdate({
+                    layoutByViewport: {
+                      ...existingByViewport,
+                      [viewport]: { ...currentLayout, h },
+                    },
+                  });
                 }}
                 aria-label="Block height in pixels"
                 style={{ flex: 1 }}
@@ -1133,102 +1623,93 @@ export function BlockToolbarSidebar({
               <span className="toolbar-checkbox-text">Full bleed (left to right)</span>
             </label>
           </div>
-          <CollapsibleSection title="Margin" defaultOpen={false} className="sidebar-section-spacing">
-            <div className="block-toolbar block-toolbar-in-sidebar toolbar-spacing">
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Top</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.marginTop as string) ?? ''}
-                  onChange={(e) => onUpdate({ marginTop: e.target.value.trim() || undefined })}
-                  placeholder="e.g. 16 or 24"
-                  aria-label="Margin top"
-                />
-              </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Bottom</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.marginBottom as string) ?? ''}
-                  onChange={(e) => onUpdate({ marginBottom: e.target.value.trim() || undefined })}
-                  placeholder="e.g. 16 or 24"
-                  aria-label="Margin bottom"
-                />
-              </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Left</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.marginLeft as string) ?? ''}
-                  onChange={(e) => onUpdate({ marginLeft: e.target.value.trim() || undefined })}
-                  placeholder="0"
-                  aria-label="Margin left"
-                />
-              </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Right</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.marginRight as string) ?? ''}
-                  onChange={(e) => onUpdate({ marginRight: e.target.value.trim() || undefined })}
-                  placeholder="0"
-                  aria-label="Margin right"
-                />
+        </div>
+      </CollapsibleSection>
+      <CollapsibleSection title="Spacing" defaultOpen={false} className="sidebar-section-spacing">
+        <div className="block-toolbar block-toolbar-in-sidebar">
+          <div className="spacing-card">
+            <div className="spacing-visual">
+              <div className="spacing-visual-margin">
+                <div className="spacing-visual-padding">
+                  <div className="spacing-visual-content" />
+                </div>
               </div>
             </div>
-          </CollapsibleSection>
-          <CollapsibleSection title="Padding" defaultOpen={false} className="sidebar-section-spacing">
-            <div className="block-toolbar block-toolbar-in-sidebar toolbar-spacing">
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Top</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.paddingTop as string) ?? ''}
-                  onChange={(e) => onUpdate({ paddingTop: e.target.value.trim() || undefined })}
-                  placeholder="e.g. 16 or 24"
-                  aria-label="Padding top"
-                />
+            <div className="spacing-controls">
+              <div className="spacing-group">
+                <span className="spacing-group-title">Margins</span>
+                {([
+                  { key: 'marginTop', label: 'Top' },
+                  { key: 'marginRight', label: 'Right' },
+                  { key: 'marginBottom', label: 'Bottom' },
+                  { key: 'marginLeft', label: 'Left' },
+                ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
+                  const raw = (attrs[key] as string | undefined) ?? '';
+                  const mode = parseSpacingMode(raw);
+                  const value = parseSpacingValue(raw);
+                  return (
+                    <label key={key} className="spacing-row">
+                      <span className="spacing-row-label">{label}</span>
+                      <select
+                        className="spacing-row-mode"
+                        value={mode}
+                        onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
+                        aria-label={`Margin ${label.toLowerCase()} mode`}
+                      >
+                        <option value="auto">auto</option>
+                        <option value="fixed">set</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="spacing-row-value"
+                        value={value}
+                        onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
+                        disabled={mode === 'auto'}
+                        placeholder={label === 'Top' || label === 'Bottom' ? '30px' : '0px'}
+                        aria-label={`Margin ${label.toLowerCase()} value`}
+                      />
+                    </label>
+                  );
+                })}
               </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Bottom</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.paddingBottom as string) ?? ''}
-                  onChange={(e) => onUpdate({ paddingBottom: e.target.value.trim() || undefined })}
-                  placeholder="e.g. 16 or 24"
-                  aria-label="Padding bottom"
-                />
-              </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Left</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.paddingLeft as string) ?? ''}
-                  onChange={(e) => onUpdate({ paddingLeft: e.target.value.trim() || undefined })}
-                  placeholder="0"
-                  aria-label="Padding left"
-                />
-              </div>
-              <div className="toolbar-field">
-                <span className="toolbar-group-label">Right</span>
-                <input
-                  type="text"
-                  className="toolbar-input-full"
-                  value={(attrs.paddingRight as string) ?? ''}
-                  onChange={(e) => onUpdate({ paddingRight: e.target.value.trim() || undefined })}
-                  placeholder="0"
-                  aria-label="Padding right"
-                />
+              <div className="spacing-group">
+                <span className="spacing-group-title">Padding</span>
+                {([
+                  { key: 'paddingTop', label: 'Top' },
+                  { key: 'paddingRight', label: 'Right' },
+                  { key: 'paddingBottom', label: 'Bottom' },
+                  { key: 'paddingLeft', label: 'Left' },
+                ] as Array<{ key: SpacingKey; label: string }>).map(({ key, label }) => {
+                  const raw = (attrs[key] as string | undefined) ?? '';
+                  const mode = parseSpacingMode(raw);
+                  const value = parseSpacingValue(raw);
+                  return (
+                    <label key={key} className="spacing-row">
+                      <span className="spacing-row-label">{label}</span>
+                      <select
+                        className="spacing-row-mode"
+                        value={mode}
+                        onChange={(e) => updateSpacingValue(key, e.target.value as 'auto' | 'fixed', value)}
+                        aria-label={`Padding ${label.toLowerCase()} mode`}
+                      >
+                        <option value="auto">auto</option>
+                        <option value="fixed">set</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="spacing-row-value"
+                        value={value}
+                        onChange={(e) => updateSpacingValue(key, mode, e.target.value)}
+                        disabled={mode === 'auto'}
+                        placeholder={label === 'Top' || label === 'Bottom' ? '0px' : '30px'}
+                        aria-label={`Padding ${label.toLowerCase()} value`}
+                      />
+                    </label>
+                  );
+                })}
               </div>
             </div>
-          </CollapsibleSection>
+          </div>
         </div>
       </CollapsibleSection>
       <CollapsibleSection title="Actions" defaultOpen className="sidebar-section-actions">

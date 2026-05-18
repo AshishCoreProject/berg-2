@@ -53,6 +53,7 @@ const CATEGORIES = [
 /** Simple icon per block type for Builder.io-style visual identification */
 function BlockIcon({ type }: { type: string }) {
   const icons: Record<string, string> = {
+    'core/box': '▢',
     'core/paragraph': '¶',
     'core/heading': 'H',
     'core/list': '≡',
@@ -71,6 +72,7 @@ function BlockIcon({ type }: { type: string }) {
     'store/promo-banner': '▤',
     'store/testimonials': '★',
     'store/trust-badges': '✓',
+    'store/customer-auth': '◎',
     'core/form': '📋',
     'core/form-input': '⎆',
     'core/form-select': '▾',

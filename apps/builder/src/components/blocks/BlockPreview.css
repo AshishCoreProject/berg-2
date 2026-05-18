@@ -24,6 +24,12 @@
   margin: 0;
 }
 
+.block-content .block-box {
+  border: 1px dashed var(--border, #cbd5e1);
+  border-radius: var(--radius-md, 8px);
+  min-height: 2rem;
+}
+
 .block-content .block-paragraph {
   font-size: 1.0625rem;
   line-height: 1.6;
@@ -80,13 +86,23 @@
   color: var(--accent-foreground);
   border-radius: var(--radius-md);
   font-weight: 500;
-  transition: opacity 0.2s, transform 0.15s;
+  transition:
+    opacity 0.2s,
+    transform 0.15s;
 }
 
 .block-content .button-link:hover {
   opacity: 0.95;
   transform: translateY(-1px);
   text-decoration: none;
+}
+
+/* In builder, make standalone Button blocks span full selected block width. */
+.block-content .block.block-button .button-link {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .block-content .button-link-preview {
@@ -122,16 +138,21 @@
   border-radius: var(--radius-md);
 }
 
-/* When block is selected for editing, force light theme for readable editing (overrides inline heroBg) */
-.block-wrap.selected .block-hero-preview {
-  background-color: #f1f5f9 !important;
+/* Hero canvas: contenteditable must inherit title/subtitle/CTA colors from parent (beats .text-editor-content { color: var(--text) }). */
+.block-content .block-hero-preview .text-editor-bare .text-editor-content {
+  color: inherit;
+}
+
+/* Newsletter: same — storefront App.css .newsletter-subtitle { color: var(--muted) } is loaded in builder; inline subtitle color + inherit fixes preview. */
+.block-content .block-newsletter .text-editor-bare .text-editor-content {
+  color: inherit;
 }
 
 .block-content .block-hero-preview .hero-inner {
   max-width: 720px;
   margin: 0 auto;
   text-align: center;
-  color: #0f172a;
+  color: #000000;
 }
 
 .block-content .block-hero-preview .hero-title {
@@ -144,16 +165,21 @@
 .block-content .block-hero-preview .hero-subtitle {
   margin: 0 0 16px;
   font-size: 1.125rem;
-  color: #475569;
+  color: inherit;
 }
 
-/* Force dark text in edit mode so light bg stays readable (overrides inline title/subtitle colors) */
+/* Force readable text in edit mode when selected (overrides inline title/subtitle colors) */
 .block-wrap.selected .block-hero-preview .hero-inner,
 .block-wrap.selected .block-hero-preview .hero-title {
-  color: #0f172a !important;
+  color: #000000 !important;
 }
 .block-wrap.selected .block-hero-preview .hero-subtitle {
-  color: #475569 !important;
+  color: #000000 !important;
+}
+
+/* Hero CTA: black label like storefront / design reference (not global accent-foreground). */
+.block-content .block-hero-preview .hero-cta .button-link {
+  color: var(--button-color, #000000);
 }
 
 .block-content .hero-cta {
@@ -303,8 +329,9 @@
 }
 
 .block-form-field-wrap.selected {
-  border-color: var(--accent);
-  background: var(--accent-muted);
+  border-color: var(--selection-accent);
+  border-radius: 0;
+  background: var(--selection-muted);
 }
 
 .block-form-drop-hint {

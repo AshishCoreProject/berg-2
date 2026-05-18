@@ -55,36 +55,13 @@ export function CollectionList({ apiBaseUrl, apiEndpoint, title, useDemoData, ti
   if (buttonPadding) linkStyle.padding = buttonPadding;
 
   useEffect(() => {
-    if (useDemoData) {
-      setCollections(DEMO_COLLECTIONS as Collection[]);
-      setLoading(false);
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setError('API base URL not configured. Set it in Builder → Website → API Base URL.');
-      setLoading(false);
-      return;
-    }
-
-    const fetchCollections = async () => {
-      try {
-        setLoading(true);
-        const url = new URL(apiEndpoint, apiBaseUrl);
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : data.collections || data.items || [];
-        setCollections(items);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load collections');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCollections();
+    // Temporary policy: collections are demo-only until collection APIs are finalized.
+    void apiBaseUrl;
+    void apiEndpoint;
+    void useDemoData;
+    setError(null);
+    setCollections(DEMO_COLLECTIONS as Collection[]);
+    setLoading(false);
   }, [apiBaseUrl, apiEndpoint, useDemoData]);
 
   if (loading) {

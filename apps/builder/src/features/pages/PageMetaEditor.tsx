@@ -6,19 +6,22 @@ interface Props {
   meta: PageMeta;
   slug: string;
   published?: boolean;
+  /** When true, URL slug cannot be changed (reserved auth routes /login and /register). */
+  slugReadOnly?: boolean;
   otherSlugs: Set<string>;
   onChange: (meta: Partial<PageMeta>) => void;
   onSlugChange: (slug: string) => void;
   onPublishedChange: (published: boolean) => void;
 }
 
-export function PageMetaEditor({ meta, slug, published = true, otherSlugs, onChange, onSlugChange, onPublishedChange }: Props) {
+export function PageMetaEditor({ meta, slug, published = true, slugReadOnly = false, otherSlugs, onChange, onSlugChange, onPublishedChange }: Props) {
   const [slugInput, setSlugInput] = useState(slug);
   useEffect(() => {
     setSlugInput(slug);
   }, [slug]);
 
   const handleSlugBlur = () => {
+    if (slugReadOnly) return;
     const cleaned = slugify(slugInput.trim()) || 'page';
     const unique = uniqueSlug(cleaned, otherSlugs);
     setSlugInput(unique);
@@ -48,8 +51,16 @@ export function PageMetaEditor({ meta, slug, published = true, otherSlugs, onCha
             onBlur={handleSlugBlur}
             placeholder="page-slug"
             aria-label="Page route"
+            readOnly={slugReadOnly}
+            disabled={slugReadOnly}
+            title={slugReadOnly ? 'Fixed route for customer sign-in or registration' : undefined}
           />
         </div>
+        {slugReadOnly && (
+          <p className="site-settings-hint" style={{ marginTop: '0.35rem' }}>
+            Fixed auth route — slug stays <code>/{slug}</code> for storefront links.
+          </p>
+        )}
       </label>
       <label>
         <span>Description</span>

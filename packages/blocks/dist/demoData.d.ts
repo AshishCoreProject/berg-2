@@ -7,7 +7,10 @@ export interface DemoProduct {
     description?: string;
     price: number;
     image?: string;
+    /** Extra gallery URLs; first entry should match `image` when both are set. */
+    images?: string[];
     handle: string;
+    variant_id?: string;
 }
 export interface DemoCollection {
     id: string;

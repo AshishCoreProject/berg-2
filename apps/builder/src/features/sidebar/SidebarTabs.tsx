@@ -4,7 +4,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-type TabId = 'insert' | 'site' | 'pages';
+type TabId = 'insert' | 'site' | 'pages' | 'layers';
 
 interface Tab {
   id: TabId;
@@ -17,6 +17,7 @@ interface Props {
   insertContent: ReactNode;
   siteContent: ReactNode;
   pagesContent: ReactNode;
+  layersContent: ReactNode;
   hasPages?: boolean;
 }
 
@@ -24,6 +25,7 @@ export function SidebarTabs({
   insertContent,
   siteContent,
   pagesContent,
+  layersContent,
   hasPages = true,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('insert');
@@ -32,6 +34,7 @@ export function SidebarTabs({
     { id: 'insert', label: 'Insert', icon: '+', content: insertContent },
     { id: 'site', label: 'Site', icon: '⚙', content: siteContent },
     ...(hasPages ? [{ id: 'pages' as TabId, label: 'Pages', icon: '☰', content: pagesContent }] : []),
+    { id: 'layers', label: 'Layers', icon: '◫', content: layersContent },
   ];
 
   return (

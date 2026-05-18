@@ -4,6 +4,8 @@ import { isInnerBlocksBlock } from '@berg/schema';
 import { sanitizeHtml, isHtml, sanitizeCustomHtml } from './sanitizeHtml';
 import { ProductGrid } from './ProductGrid';
 import { CollectionList } from './CollectionList';
+import { CustomerAuthBlock } from './CustomerAuthBlock';
+import { resolveGridLayout } from './blockLayout';
 /**
  * Renders a single block to semantic HTML for SEO and accessibility.
  * Each block type maps to appropriate tags (section, article, h1–h6, p, figure, etc.).
@@ -23,7 +25,7 @@ function normalizeSpacingValue(v) {
     return trimmed;
 }
 /** Form container: renders fields + submit button, runs submitScript on mount */
-function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, }) {
+function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, useDemoData, tenantId, storeId, cartGuestStorageTenantId, cartGuestStorageStoreId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, layoutViewport, requireGuestCartIdForLogin, }) {
     const formRef = useRef(null);
     useEffect(() => {
         if (!formRef.current || !submitScript.trim())
@@ -36,7 +38,7 @@ function FormBlock({ title, submitButtonText, submitScript, fields, apiBaseUrl, 
             /* ignore parse/runtime errors in user script */
         }
     }, [submitScript]);
-    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
+    return (_jsxs("section", { className: "block block-form", children: [title && _jsx("h3", { className: "block-form-title", children: title }), _jsxs("form", { ref: formRef, className: "block-form-inner", onSubmit: (e) => e.preventDefault(), children: [fields.map((f) => (_jsx(BlockRenderer, { block: f, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, cartGuestStorageTenantId: cartGuestStorageTenantId, cartGuestStorageStoreId: cartGuestStorageStoreId, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, layoutViewport: layoutViewport, requireGuestCartIdForLogin: requireGuestCartIdForLogin }, f.id))), _jsx("div", { className: "block-form-actions", children: _jsx("button", { type: "submit", className: "button-link form-submit-btn", children: submitButtonText }) })] })] }));
 }
 function buildSpacingStyle(attrs) {
     const s = {};
@@ -51,9 +53,14 @@ function buildSpacingStyle(attrs) {
     }
     return s;
 }
-export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
+export function BlockRenderer({ block, apiBaseUrl, useDemoData, tenantId, storeId, cartGuestStorageTenantId, cartGuestStorageStoreId, authApiBaseUrl, authFormDefaults, onNavigate, isBuilderPreview, renderChildren, layoutViewport = 'desktop', requireGuestCartIdForLogin, }) {
     const attrs = block.attributes ?? {};
     const spacingStyle = buildSpacingStyle(attrs);
+    const textAlign = attrs.textAlign ?? 'left';
+    const verticalAlign = attrs.verticalAlign ?? 'center';
+    const normalizedTextAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'left' ? textAlign : 'left';
+    const normalizedVerticalAlign = verticalAlign === 'top' || verticalAlign === 'center' || verticalAlign === 'bottom' ? verticalAlign : 'center';
+    const verticalJustifyContent = normalizedVerticalAlign === 'top' ? 'flex-start' : normalizedVerticalAlign === 'bottom' ? 'flex-end' : 'center';
     const textStyle = () => {
         const s = {};
         const font = attrs.fontFamily;
@@ -76,16 +83,42 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
     const wrapWithSpacing = (el) => {
         if (Object.keys(spacingStyle).length === 0)
             return el;
-        return (_jsx("div", { style: { ...spacingStyle, width: '100%', boxSizing: 'border-box' }, children: el }));
+        return (_jsx("div", { style: { ...spacingStyle, width: '100%', height: '100%', boxSizing: 'border-box' }, children: el }));
     };
     let content = null;
     switch (block.type) {
+        case 'core/box': {
+            // On storefront, an empty Box has no intrinsic height. Use builder layout rows (40px)
+            // as a sensible default so background/border/shadow are visible.
+            const layout = resolveGridLayout(attrs, layoutViewport);
+            const minHeightPx = `${Math.max(1, (layout?.h ?? 1)) * 40}px`;
+            const style = { minHeight: minHeightPx, width: '100%', boxSizing: 'border-box' };
+            const bg = attrs.backgroundColor;
+            const radius = attrs.borderRadius;
+            const pad = attrs.padding;
+            const boxShadow = attrs.boxShadow;
+            const border = attrs.border;
+            if (bg)
+                style.backgroundColor = bg;
+            if (radius)
+                style.borderRadius = radius;
+            if (pad)
+                style.padding = pad;
+            if (boxShadow)
+                style.boxShadow = boxShadow;
+            if (border)
+                style.border = border;
+            content = (_jsx("div", { className: "block block-box", style: style }));
+            break;
+        }
         case 'core/paragraph': {
             const c = attrs.content ?? '';
             if (!c.trim())
                 break;
             const style = textStyle();
-            content = isHtml(c) ? _jsx("p", { className: "block block-paragraph", style: style, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx("p", { className: "block block-paragraph", style: style, children: c });
+            style.textAlign = normalizedTextAlign;
+            const nodeStyle = { ...style, flex: '0 0 auto' };
+            content = (_jsx("div", { className: "block-vertical-align-wrap", style: { display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }, children: isHtml(c) ? _jsx("p", { className: "block block-paragraph", style: nodeStyle, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx("p", { className: "block block-paragraph", style: nodeStyle, children: c }) }));
             break;
         }
         case 'core/heading': {
@@ -95,7 +128,9 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
             if (!c.trim())
                 break;
             const style = textStyle();
-            content = isHtml(c) ? _jsx(Tag, { className: "block block-heading", style: style, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx(Tag, { className: "block block-heading", style: style, children: c });
+            style.textAlign = normalizedTextAlign;
+            const nodeStyle = { ...style, flex: '0 0 auto' };
+            content = (_jsx("div", { className: "block-vertical-align-wrap", style: { display: 'flex', flexDirection: 'column', justifyContent: verticalJustifyContent, minHeight: '100%', height: '100%' }, children: isHtml(c) ? _jsx(Tag, { className: "block block-heading", style: nodeStyle, dangerouslySetInnerHTML: { __html: sanitizeHtml(c) } }) : _jsx(Tag, { className: "block block-heading", style: nodeStyle, children: c }) }));
             break;
         }
         case 'core/image': {
@@ -148,7 +183,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
                 const gridCols = columnWidths && columnWidths.length === block.innerBlocks.length
                     ? columnWidths.map((p) => `${p}fr`).join(' ')
                     : `repeat(${columns}, 1fr)`;
-                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }) }, col.id))) }) }));
+                content = (_jsx("section", { className: "block block-columns", "aria-label": "Content columns", children: _jsx("div", { className: "columns-inner", style: { gridTemplateColumns: gridCols }, children: block.innerBlocks.map((col) => (_jsx("div", { className: "column", children: _jsx(BlockRenderer, { block: col, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, cartGuestStorageTenantId: cartGuestStorageTenantId, cartGuestStorageStoreId: cartGuestStorageStoreId, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, layoutViewport: layoutViewport, requireGuestCartIdForLogin: requireGuestCartIdForLogin }) }, col.id))) }) }));
             }
             break;
         }
@@ -316,7 +351,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
             break;
         }
         case 'store/product-grid': {
-            content = (_jsx(ProductGrid, { apiBaseUrl: apiBaseUrl, apiEndpoint: attrs.apiEndpoint ?? '/products', title: attrs.title ?? 'Products', limit: attrs.limit ?? 12, collectionId: attrs.collectionId || undefined, useDemoData: useDemoData, titleFontFamily: attrs.fontFamily || undefined, titleTextColor: attrs.textColor || undefined, titleFontSize: attrs.fontSize || attrs.titleFontSize || undefined, titleFontWeight: attrs.fontWeight || attrs.titleFontWeight || undefined, titleFontStyle: attrs.fontStyle || attrs.titleFontStyle || undefined, buttonBackgroundColor: attrs.buttonBackgroundColor || undefined, buttonColor: attrs.buttonColor || undefined, buttonFontFamily: attrs.buttonFontFamily || undefined, buttonFontSize: attrs.buttonFontSize || undefined, buttonFontWeight: attrs.buttonFontWeight || undefined, buttonFontStyle: attrs.buttonFontStyle || undefined, buttonBorderRadius: attrs.buttonBorderRadius || undefined, buttonPadding: attrs.buttonPadding || undefined }));
+            content = (_jsx(ProductGrid, { apiBaseUrl: apiBaseUrl, apiEndpoint: attrs.apiEndpoint ?? '/products', title: attrs.title ?? 'Products', limit: attrs.limit ?? 12, collectionId: attrs.collectionId || undefined, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, titleFontFamily: attrs.fontFamily || undefined, titleTextColor: attrs.textColor || undefined, titleFontSize: attrs.fontSize || attrs.titleFontSize || undefined, titleFontWeight: attrs.fontWeight || attrs.titleFontWeight || undefined, titleFontStyle: attrs.fontStyle || attrs.titleFontStyle || undefined, buttonBackgroundColor: attrs.buttonBackgroundColor || undefined, buttonColor: attrs.buttonColor || undefined, buttonFontFamily: attrs.buttonFontFamily || undefined, buttonFontSize: attrs.buttonFontSize || undefined, buttonFontWeight: attrs.buttonFontWeight || undefined, buttonFontStyle: attrs.buttonFontStyle || undefined, buttonBorderRadius: attrs.buttonBorderRadius || undefined, buttonPadding: attrs.buttonPadding || undefined }));
             break;
         }
         case 'store/collection-list': {
@@ -342,7 +377,10 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
                 btnStyle.backgroundColor = attrs.buttonBackgroundColor;
             if (attrs.buttonColor)
                 btnStyle.color = attrs.buttonColor;
-            content = (_jsx("section", { className: "block block-newsletter", style: style, children: _jsxs("div", { className: "newsletter-inner", children: [_jsx("h3", { className: "newsletter-title", style: Object.keys(titleStyle).length > 1 ? titleStyle : undefined, children: isHtml(title) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(title) } }) : title }), _jsx("p", { className: "newsletter-subtitle", children: isHtml(subtitle) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(subtitle) } }) : subtitle }), _jsxs("form", { className: "newsletter-form", onSubmit: (e) => e.preventDefault(), children: [_jsx("input", { type: "email", placeholder: "Enter your email", className: "newsletter-input", "aria-label": "Email" }), _jsx("button", { type: "submit", className: "button-link newsletter-btn", style: Object.keys(btnStyle).length ? btnStyle : undefined, children: isHtml(buttonText) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(buttonText) } }) : buttonText })] })] }) }));
+            const subtitleStyle = {};
+            if (attrs.textColor)
+                subtitleStyle.color = attrs.textColor;
+            content = (_jsx("section", { className: "block block-newsletter", style: style, children: _jsxs("div", { className: "newsletter-inner", children: [_jsx("h3", { className: "newsletter-title", style: Object.keys(titleStyle).length > 1 ? titleStyle : undefined, children: isHtml(title) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(title) } }) : title }), _jsx("p", { className: "newsletter-subtitle", style: Object.keys(subtitleStyle).length ? subtitleStyle : undefined, children: isHtml(subtitle) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(subtitle) } }) : subtitle }), _jsxs("form", { className: "newsletter-form", onSubmit: (e) => e.preventDefault(), children: [_jsx("input", { type: "email", placeholder: "Enter your email", className: "newsletter-input", "aria-label": "Email" }), _jsx("button", { type: "submit", className: "button-link newsletter-btn", style: Object.keys(btnStyle).length ? btnStyle : undefined, children: isHtml(buttonText) ? _jsx("span", { dangerouslySetInnerHTML: { __html: sanitizeHtml(buttonText) } }) : buttonText })] })] }) }));
             break;
         }
         case 'core/form': {
@@ -350,7 +388,7 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
                 const title = attrs.title ?? 'Contact us';
                 const submitText = attrs.submitButtonText ?? 'Submit';
                 const submitScript = attrs.submitScript ?? '';
-                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData }));
+                content = (_jsx(FormBlock, { title: title, submitButtonText: submitText, submitScript: submitScript, fields: block.innerBlocks, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, cartGuestStorageTenantId: cartGuestStorageTenantId, cartGuestStorageStoreId: cartGuestStorageStoreId, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, layoutViewport: layoutViewport, requireGuestCartIdForLogin: requireGuestCartIdForLogin }));
             }
             else {
                 content = (_jsx("section", { className: "block block-form block-form-empty", children: _jsx("p", { className: "block-form-empty-hint", children: "Add form fields by dragging them from the Form section." }) }));
@@ -427,10 +465,33 @@ export function BlockRenderer({ block, apiBaseUrl, useDemoData }) {
             }
             break;
         }
+        case 'store/customer-auth': {
+            content = (_jsx(CustomerAuthBlock, { attrs: attrs, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, storeId: storeId, tenantId: tenantId, cartGuestStorageTenantId: cartGuestStorageTenantId, cartGuestStorageStoreId: cartGuestStorageStoreId, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, requireGuestCartIdForLogin: requireGuestCartIdForLogin }));
+            break;
+        }
         default:
             break;
     }
-    if (!content)
+    const children = block.children;
+    const showChildren = renderChildren !== false && Array.isArray(children) && children.length > 0;
+    if (!content && !showChildren)
         return null;
-    return wrapWithSpacing(content);
+    const base = content ? wrapWithSpacing(content) : null;
+    if (!showChildren)
+        return base;
+    return (_jsxs("div", { style: { position: 'relative', width: '100%', height: '100%', overflow: 'visible' }, children: [base, _jsx("div", { style: { position: 'absolute', inset: 0, pointerEvents: 'auto', overflow: 'visible' }, children: children.map((child) => {
+                    const layerLayout = child.attributes?.layerLayout;
+                    const xPct = typeof layerLayout?.xPct === 'number' ? layerLayout.xPct : 0;
+                    const yPct = typeof layerLayout?.yPct === 'number' ? layerLayout.yPct : 0;
+                    const wPct = typeof layerLayout?.wPct === 'number' ? layerLayout.wPct : 25;
+                    const hPct = typeof layerLayout?.hPct === 'number' ? layerLayout.hPct : 10;
+                    return (_jsx("div", { style: {
+                            position: 'absolute',
+                            left: `${xPct}%`,
+                            top: `${yPct}%`,
+                            width: `${wPct}%`,
+                            height: `${hPct}%`,
+                            overflow: 'visible',
+                        }, children: _jsx(BlockRenderer, { block: child, apiBaseUrl: apiBaseUrl, useDemoData: useDemoData, tenantId: tenantId, storeId: storeId, cartGuestStorageTenantId: cartGuestStorageTenantId, cartGuestStorageStoreId: cartGuestStorageStoreId, authApiBaseUrl: authApiBaseUrl, authFormDefaults: authFormDefaults, onNavigate: onNavigate, isBuilderPreview: isBuilderPreview, renderChildren: renderChildren, layoutViewport: layoutViewport, requireGuestCartIdForLogin: requireGuestCartIdForLogin }) }, child.id));
+                }) })] }));
 }
